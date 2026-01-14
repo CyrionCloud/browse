@@ -2,15 +2,15 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: 'default' | 'glass' | 'elevated'
+  variant?: 'default' | 'blur' | 'elevated'
 }
 
 const Card = React.forwardRef<HTMLDivElement, CardProps>(
   ({ className, variant = 'default', ...props }, ref) => {
     const variants = {
-      default: 'bg-dark-surface border border-dark-border',
-      glass: 'glass glass-border',
-      elevated: 'bg-dark-elevated border border-dark-border shadow-lg',
+      default: 'bg-card border border-border',
+      blur: 'blur-effect blur-border',
+      elevated: 'bg-surface-elevated border border-border',
     }
 
     return (
@@ -61,7 +61,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn('text-sm text-text-secondary', className)}
+    className={cn('text-sm text-muted-foreground', className)}
     {...props}
   />
 ))

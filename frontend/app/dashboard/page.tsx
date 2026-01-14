@@ -34,7 +34,6 @@ export default function DashboardPage() {
   const [agentConfig, setAgentConfig] = useState<AgentConfig>(defaultAgentConfig)
   const [isCreatingSession, setIsCreatingSession] = useState(false)
   const [newTaskInput, setNewTaskInput] = useState('')
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const {
     sessions,
@@ -175,8 +174,8 @@ export default function DashboardPage() {
 
   if (!initialized) {
     return (
-      <div className="flex h-screen items-center justify-center bg-dark-bg">
-        <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
       </div>
     )
   }

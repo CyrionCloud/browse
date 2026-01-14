@@ -7,7 +7,6 @@ import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 import {
   Bot,
-  MessageSquare,
   History,
   Settings,
   LogOut,
@@ -40,24 +39,24 @@ export function Sidebar({ children }: SidebarProps) {
   }
 
   return (
-    <div className="flex h-screen bg-dark-bg">
+    <div className="flex h-screen bg-background">
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 w-64 bg-dark-surface border-r border-dark-border transform transition-transform duration-200 lg:relative lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 w-64 bg-surface border-r border-border transform transition-transform duration-200 lg:relative lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
         <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between p-4 border-b border-dark-border">
+          <div className="flex items-center justify-between p-4 border-b border-border">
             <Link href="/dashboard" className="flex items-center gap-2">
-              <Bot className="h-8 w-8 text-primary-500" />
+              <Bot className="h-8 w-8 text-accent" />
               <span className="font-bold text-xl text-foreground">AutoBrowse</span>
             </Link>
             <button
               onClick={() => setMobileOpen(false)}
-              className="lg:hidden p-1 rounded-md hover:bg-dark-elevated"
+              className="lg:hidden p-1 rounded-md hover:bg-surface-hover"
             >
-              <X className="h-5 w-5 text-text-muted" />
+              <X className="h-5 w-5 text-muted-foreground" />
             </button>
           </div>
 
@@ -71,8 +70,8 @@ export function Sidebar({ children }: SidebarProps) {
                   className={cn(
                     'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                     isActive
-                      ? 'bg-primary-500/20 text-primary-400'
-                      : 'text-text-secondary hover:text-foreground hover:bg-dark-elevated'
+                      ? 'bg-accent/10 text-accent'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
                   )}
                 >
                   <item.icon className="h-5 w-5" />
@@ -82,7 +81,7 @@ export function Sidebar({ children }: SidebarProps) {
             })}
           </nav>
 
-          <div className="p-4 border-t border-dark-border">
+          <div className="p-4 border-t border-border">
             <div className="flex items-center gap-3 mb-3 px-3">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">
@@ -92,10 +91,10 @@ export function Sidebar({ children }: SidebarProps) {
                   <div
                     className={cn(
                       'w-2 h-2 rounded-full',
-                      wsConnected ? 'bg-success-500' : 'bg-text-muted'
+                      wsConnected ? 'bg-accent' : 'bg-muted-foreground'
                     )}
                   />
-                  <span className="text-xs text-text-muted">
+                  <span className="text-xs text-muted-foreground">
                     {wsConnected ? 'Connected' : 'Disconnected'}
                   </span>
                 </div>
@@ -104,7 +103,7 @@ export function Sidebar({ children }: SidebarProps) {
             <Button
               variant="ghost"
               onClick={handleSignOut}
-              className="w-full justify-start text-text-secondary hover:text-foreground"
+              className="w-full justify-start text-muted-foreground hover:text-foreground"
             >
               <LogOut className="h-4 w-4 mr-2" />
               Sign Out
@@ -114,15 +113,15 @@ export function Sidebar({ children }: SidebarProps) {
       </aside>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="lg:hidden flex items-center justify-between p-4 border-b border-dark-border bg-dark-surface">
+        <header className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-surface">
           <button
             onClick={() => setMobileOpen(true)}
-            className="p-2 rounded-md hover:bg-dark-elevated"
+            className="p-2 rounded-md hover:bg-surface-hover"
           >
-            <Menu className="h-5 w-5 text-text-muted" />
+            <Menu className="h-5 w-5 text-muted-foreground" />
           </button>
           <Link href="/dashboard" className="flex items-center gap-2">
-            <Bot className="h-6 w-6 text-primary-500" />
+            <Bot className="h-6 w-6 text-accent" />
             <span className="font-bold text-lg text-foreground">AutoBrowse</span>
           </Link>
           <div className="w-10" />

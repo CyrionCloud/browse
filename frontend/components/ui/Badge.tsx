@@ -2,18 +2,18 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 
 interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: 'default' | 'primary' | 'success' | 'warning' | 'alert' | 'outline'
+  variant?: 'default' | 'accent' | 'success' | 'warning' | 'error' | 'outline'
 }
 
 const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
   ({ className, variant = 'default', ...props }, ref) => {
     const variants = {
-      default: 'bg-dark-elevated text-foreground border border-dark-border',
-      primary: 'bg-primary-500/20 text-primary-400 border border-primary-500/30',
-      success: 'bg-success-500/20 text-success-500 border border-success-500/30',
-      warning: 'bg-warning-500/20 text-warning-500 border border-warning-500/30',
-      alert: 'bg-alert-500/20 text-alert-500 border border-alert-500/30',
-      outline: 'bg-transparent text-foreground border border-dark-border',
+      default: 'bg-surface-elevated text-foreground border border-border',
+      accent: 'bg-accent/15 text-accent-muted border border-accent/25',
+      success: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25',
+      warning: 'bg-amber-500/15 text-amber-400 border border-amber-500/25',
+      error: 'bg-error/15 text-error-muted border border-error/25',
+      outline: 'bg-transparent text-foreground border border-border',
     }
 
     return (

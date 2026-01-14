@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Card, CardHeader, CardTitle, CardContent, Input, Switch, Button } from '@/components/ui'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui'
-import { Settings, User, Zap, Globe, Shield, Save } from 'lucide-react'
+import { Zap, User, Save, Shield } from 'lucide-react'
 import type { AgentConfig } from '@autobrowse/shared'
 
 interface AgentSettingsProps {
@@ -29,18 +29,18 @@ export function AgentSettings({ config, onSave }: AgentSettingsProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Zap className="h-5 w-5 text-primary-500" />
+          <Zap className="h-5 w-5 text-accent" />
           Agent Configuration
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-sm text-text-secondary">Model</label>
+            <label className="text-sm text-muted-foreground">Model</label>
             <select
               value={localConfig.model}
               onChange={(e) => handleChange({ model: e.target.value as AgentConfig['model'] })}
-              className="w-full h-10 rounded-lg border border-dark-border bg-dark-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full h-10 rounded-lg border border-border bg-input px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
               <option value="browser-use-llm">Browser Use LLM</option>
               <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
@@ -48,7 +48,7 @@ export function AgentSettings({ config, onSave }: AgentSettingsProps) {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm text-text-secondary">Max Steps</label>
+            <label className="text-sm text-muted-foreground">Max Steps</label>
             <Input
               type="number"
               value={localConfig.maxSteps}
@@ -65,7 +65,7 @@ export function AgentSettings({ config, onSave }: AgentSettingsProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-foreground">Vision</p>
-              <p className="text-xs text-text-muted">Enable visual understanding</p>
+              <p className="text-xs text-muted-foreground">Enable visual understanding</p>
             </div>
             <Switch
               checked={localConfig.vision}
@@ -76,7 +76,7 @@ export function AgentSettings({ config, onSave }: AgentSettingsProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-foreground">Thinking</p>
-              <p className="text-xs text-text-muted">Show agent reasoning</p>
+              <p className="text-xs text-muted-foreground">Show agent reasoning</p>
             </div>
             <Switch
               checked={localConfig.thinking}
@@ -87,7 +87,7 @@ export function AgentSettings({ config, onSave }: AgentSettingsProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-foreground">Highlight Elements</p>
-              <p className="text-xs text-text-muted">Visual feedback for actions</p>
+              <p className="text-xs text-muted-foreground">Visual feedback for actions</p>
             </div>
             <Switch
               checked={localConfig.highlightElements}
@@ -98,7 +98,7 @@ export function AgentSettings({ config, onSave }: AgentSettingsProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-foreground">Hash Mode</p>
-              <p className="text-xs text-text-muted">Anonymous element selection</p>
+              <p className="text-xs text-muted-foreground">Anonymous element selection</p>
             </div>
             <Switch
               checked={localConfig.hashMode}
@@ -108,7 +108,7 @@ export function AgentSettings({ config, onSave }: AgentSettingsProps) {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm text-text-secondary">Proxy Location</label>
+          <label className="text-sm text-muted-foreground">Proxy Location</label>
           <Input
             value={localConfig.proxyLocation}
             onChange={(e) => handleChange({ proxyLocation: e.target.value })}
@@ -117,7 +117,7 @@ export function AgentSettings({ config, onSave }: AgentSettingsProps) {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm text-text-secondary">Allowed Domains</label>
+          <label className="text-sm text-muted-foreground">Allowed Domains</label>
           <Input
             value={localConfig.allowedDomains.join(', ')}
             onChange={(e) =>
@@ -148,17 +148,17 @@ export function UserSettings({ email, onSignOut }: UserSettingsProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <User className="h-5 w-5 text-primary-500" />
+          <User className="h-5 w-5 text-accent" />
           Account Settings
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
-          <label className="text-sm text-text-secondary">Email</label>
+          <label className="text-sm text-muted-foreground">Email</label>
           <Input value={email} disabled />
         </div>
 
-        <div className="pt-4 border-t border-dark-border">
+        <div className="pt-4 border-t border-border">
           <Button variant="destructive" onClick={onSignOut} className="w-full">
             <Shield className="h-4 w-4 mr-2" />
             Sign Out

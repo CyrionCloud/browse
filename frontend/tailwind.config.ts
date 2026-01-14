@@ -10,54 +10,43 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        'dark-bg': '#0a0a0a',
-        'dark-surface': '#121212',
-        'dark-elevated': '#1a1a1a',
-        'dark-border': '#2a2a2a',
+        'background': '#1a1a1a',
+        'surface': '#242424',
+        'surface-elevated': '#2d2d2d',
+        'surface-hover': '#363636',
+        'border': '#3d3d3d',
+        'border-soft': '#4a4a4a',
 
-        'primary': {
-          50: '#e6ffff',
-          100: '#b3f5ff',
-          200: '#80ecff',
-          300: '#4de2ff',
-          400: '#1ad9ff',
-          500: '#00d9ff',
-          600: '#00b8d9',
-          700: '#0097b3',
-          800: '#00768c',
-          900: '#005566',
+        'accent': {
+          DEFAULT: '#6366f1',
+          muted: '#818cf8',
+          hover: '#4f46e5',
+          foreground: '#ffffff',
         },
 
-        'alert': {
-          50: '#ffe6f0',
-          100: '#ffb3d1',
-          200: '#ff80b3',
-          300: '#ff4d94',
-          400: '#ff1a75',
-          500: '#ff0080',
-          600: '#d9006b',
-          700: '#b30056',
-          800: '#8c0041',
-          900: '#66002c',
+        'error': {
+          DEFAULT: '#dc2626',
+          muted: '#ef4444',
+          hover: '#b91c1c',
+          foreground: '#ffffff',
         },
 
-        'success': {
-          500: '#00ff88',
-          600: '#00d973',
+        'muted': {
+          DEFAULT: '#a1a1aa',
+          foreground: '#71717a',
         },
 
-        'warning': {
-          500: '#ffaa00',
-          600: '#d98f00',
-        },
+        'foreground': '#f4f4f5',
+        'card': '#242424',
+        'input': '#2d2d2d',
+        'ring': '#6366f1',
       },
       fontFamily: {
         mono: ['var(--font-geist-mono)', 'ui-monospace', 'monospace'],
         sans: ['var(--font-geist-sans)', 'ui-sans-serif', 'system-ui'],
       },
       animation: {
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'fade-in': 'fadeIn 0.3s ease-in-out',
+        'fade-in': 'fadeIn 0.3s ease-out',
         'slide-up': 'slideUp 0.3s ease-out',
         'slide-down': 'slideDown 0.3s ease-out',
         'spin': 'spin 1s linear infinite',

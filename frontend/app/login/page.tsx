@@ -47,12 +47,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-dark-bg p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <Link href="/" className="flex items-center gap-2">
-              <Bot className="h-10 w-10 text-primary-500" />
+              <Bot className="h-10 w-10 text-accent" />
             </Link>
           </div>
           <CardTitle className="text-2xl">Welcome Back</CardTitle>
@@ -63,13 +63,13 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="p-3 rounded-lg bg-alert-500/20 border border-alert-500/30 text-alert-500 text-sm">
+              <div className="p-3 rounded-lg bg-error/15 border border-error/25 text-error-muted text-sm">
                 {error}
               </div>
             )}
 
             <div className="space-y-2">
-              <label className="text-sm text-text-secondary">Email</label>
+              <label className="text-sm text-muted-foreground">Email</label>
               <Input
                 type="email"
                 value={email}
@@ -80,12 +80,12 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm text-text-secondary">Password</label>
+              <label className="text-sm text-muted-foreground">Password</label>
               <Input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Enter your password"
                 required
               />
             </div>
@@ -97,10 +97,10 @@ export default function LoginPage() {
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-dark-border" />
+              <div className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-dark-surface text-text-muted">Or continue with</span>
+              <span className="px-2 bg-card text-muted-foreground">Or continue with</span>
             </div>
           </div>
 
@@ -121,9 +121,9 @@ export default function LoginPage() {
             </Button>
           </div>
 
-          <p className="mt-6 text-center text-sm text-text-muted">
-            Don&apos;t have an account?{' '}
-            <Link href="/signup" className="text-primary-500 hover:underline">
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            Do not have an account?{' '}
+            <Link href="/signup" className="text-accent hover:underline">
               Sign up
             </Link>
           </p>

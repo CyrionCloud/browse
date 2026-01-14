@@ -3,22 +3,22 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-dark-bg disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
         default:
-          'bg-primary-500 text-black hover:bg-primary-400 shadow-lg shadow-primary-500/25',
+          'border border-border bg-surface hover:bg-surface-hover text-foreground',
         destructive:
-          'bg-alert-500 text-white hover:bg-alert-400 shadow-lg shadow-alert-500/25',
+          'border border-error/50 bg-error/10 text-error-muted hover:bg-error/20',
         outline:
-          'border border-dark-border bg-transparent hover:bg-dark-elevated text-foreground',
+          'border border-border bg-transparent hover:bg-surface-hover text-foreground',
         secondary:
-          'bg-dark-elevated text-foreground hover:bg-dark-border border border-dark-border',
-        ghost: 'hover:bg-dark-elevated text-foreground',
-        link: 'text-primary-500 underline-offset-4 hover:underline',
-        success:
-          'bg-success-500 text-black hover:bg-success-400 shadow-lg shadow-success-500/25',
+          'border border-border bg-surface-elevated text-foreground hover:bg-surface-hover',
+        ghost: 'hover:bg-surface text-foreground',
+        link: 'text-accent underline-offset-4 hover:underline',
+        accent:
+          'bg-accent text-white hover:bg-accent-hover border border-accent',
       },
       size: {
         default: 'h-10 px-4 py-2',

@@ -8,11 +8,9 @@ import {
   Pause,
   Square,
   Trash2,
-  ExternalLink,
   Clock,
   CheckCircle2,
   XCircle,
-  AlertCircle,
 } from 'lucide-react'
 import { cn, formatDuration, formatDate } from '@/lib/utils'
 import type { SessionStatus, BrowserSession } from '@autobrowse/shared'
@@ -28,10 +26,10 @@ interface SessionCardProps {
 
 const statusConfig: Record<SessionStatus, { icon: typeof CheckCircle2; color: string; label: string }> = {
   pending: { icon: Clock, color: 'warning', label: 'Pending' },
-  active: { icon: Play, color: 'primary', label: 'Active' },
+  active: { icon: Play, color: 'accent', label: 'Active' },
   paused: { icon: Pause, color: 'warning', label: 'Paused' },
   completed: { icon: CheckCircle2, color: 'success', label: 'Completed' },
-  failed: { icon: XCircle, color: 'alert', label: 'Failed' },
+  failed: { icon: XCircle, color: 'error', label: 'Failed' },
   cancelled: { icon: Square, color: 'default', label: 'Cancelled' },
 }
 
@@ -42,8 +40,8 @@ function SessionCard({ session, onStart, onPause, onCancel, onDelete, onSelect }
   return (
     <Card
       className={cn(
-        'cursor-pointer transition-all hover:border-primary-500/50',
-        session.status === 'active' && 'border-primary-500/50 glow-sm'
+        'cursor-pointer transition-colors hover:border-accent/50',
+        session.status === 'active' && 'border-accent/50'
       )}
       onClick={() => onSelect(session)}
     >
@@ -54,11 +52,11 @@ function SessionCard({ session, onStart, onPause, onCancel, onDelete, onSelect }
               <StatusIcon
                 className={cn(
                   'h-4 w-4',
-                  status.color === 'primary' && 'text-primary-500',
-                  status.color === 'success' && 'text-success-500',
-                  status.color === 'warning' && 'text-warning-500',
-                  status.color === 'alert' && 'text-alert-500',
-                  status.color === 'default' && 'text-text-muted'
+                  status.color === 'accent' && 'text-accent',
+                  status.color === 'success' && 'text-emerald-400',
+                  status.color === 'warning' && 'text-amber-400',
+                  status.color === 'error' && 'text-error-muted',
+                  status.color === 'default' && 'text-muted-foreground'
                 )}
               />
               <Badge variant={status.color as any}>{status.label}</Badge>
@@ -66,7 +64,7 @@ function SessionCard({ session, onStart, onPause, onCancel, onDelete, onSelect }
             <h3 className="font-medium text-foreground truncate">
               {session.task_description}
             </h3>
-            <p className="text-sm text-text-secondary mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               {formatDate(session.created_at)}
             </p>
           </div>
@@ -74,38 +72,38 @@ function SessionCard({ session, onStart, onPause, onCancel, onDelete, onSelect }
           <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
             {session.status === 'pending' && (
               <Button variant="ghost" size="icon" onClick={() => onStart(session.id)}>
-                <Play className="h-4 w-4 text-success-500" />
+                <Play className="h-4 w-4 text-emerald-400" />
               </Button>
             )}
             {session.status === 'active' && (
               <>
                 <Button variant="ghost" size="icon" onClick={() => onPause(session.id)}>
-                  <Pause className="h-4 w-4 text-warning-500" />
+                  <Pause className="h-4 w-4 text-amber-400" />
                 </Button>
                 <Button variant="ghost" size="icon" onClick={() => onCancel(session.id)}>
-                  <Square className="h-4 w-4 text-alert-500" />
+                  <Square className="h-4 w-4 text-error-muted" />
                 </Button>
               </>
             )}
             {session.status === 'paused' && (
               <Button variant="ghost" size="icon" onClick={() => onStart(session.id)}>
-                <Play className="h-4 w-4 text-success-500" />
+                <Play className="h-4 w-4 text-emerald-400" />
               </Button>
             )}
             <Button variant="ghost" size="icon" onClick={() => onDelete(session.id)}>
-              <Trash2 className="h-4 w-4 text-text-muted" />
+              <Trash2 className="h-4 w-4 text-muted-foreground" />
             </Button>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-dark-border text-xs text-text-muted">
+        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
             {session.duration_seconds ? formatDuration(session.duration_seconds) : '-'}
           </span>
           <span>{session.actions_count} actions</span>
           {session.result && (
-            <span className="flex items-center gap-1 text-success-500">
+            <span className="flex items-center gap-1 text-emerald-400">
               <CheckCircle2 className="h-3 w-3" />
               Completed
             </span>
@@ -139,9 +137,6 @@ export function SessionList({
   )
 
   const activeSessions = sessions.filter((s) => s.status === 'active')
-  const recentSessions = sessions.filter(
-    (s) => s.status === 'completed' || s.status === 'failed' || s.status === 'cancelled'
-  )
 
   return (
     <div className="space-y-6">
@@ -155,8 +150,8 @@ export function SessionList({
               className={cn(
                 'px-3 py-1 text-xs rounded-md transition-colors',
                 filter === f
-                  ? 'bg-primary-500/20 text-primary-400'
-                  : 'text-text-muted hover:text-foreground'
+                  ? 'bg-accent/20 text-accent'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
             >
               {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -167,7 +162,7 @@ export function SessionList({
 
       {activeSessions.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-medium text-text-secondary">Active</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">Active</h3>
           {activeSessions.map((session) => (
             <SessionCard
               key={session.id}
@@ -183,11 +178,11 @@ export function SessionList({
       )}
 
       <div className="space-y-3">
-        <h3 className="text-sm font-medium text-text-secondary">
+        <h3 className="text-sm font-medium text-muted-foreground">
           {filter === 'all' ? 'Recent Sessions' : filter.charAt(0).toUpperCase() + filter.slice(1)}
         </h3>
         {filteredSessions.length === 0 ? (
-          <div className="text-center py-8 text-text-muted">
+          <div className="text-center py-8 text-muted-foreground">
             <p>No sessions found</p>
           </div>
         ) : (

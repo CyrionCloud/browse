@@ -14,7 +14,7 @@ export function Spinner({ className, size = 'md', ...props }: SpinnerProps) {
   return (
     <div
       className={cn(
-        'animate-spin rounded-full border-primary-500 border-t-transparent',
+        'animate-spin rounded-full border-accent border-t-transparent',
         sizes[size],
         className
       )}
@@ -26,9 +26,9 @@ export function Spinner({ className, size = 'md', ...props }: SpinnerProps) {
 export function PulseLoader({ className }: { className?: string }) {
   return (
     <div className={cn('flex items-center gap-1', className)}>
-      <div className="h-2 w-2 rounded-full bg-primary-500 animate-bounce [animation-delay:-0.3s]" />
-      <div className="h-2 w-2 rounded-full bg-primary-500 animate-bounce [animation-delay:-0.15s]" />
-      <div className="h-2 w-2 rounded-full bg-primary-500 animate-bounce" />
+      <div className="h-2 w-2 rounded-full bg-accent animate-bounce [animation-delay:-0.3s]" />
+      <div className="h-2 w-2 rounded-full bg-accent animate-bounce [animation-delay:-0.15s]" />
+      <div className="h-2 w-2 rounded-full bg-accent animate-bounce" />
     </div>
   )
 }

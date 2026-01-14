@@ -47,12 +47,12 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-dark-bg p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <Link href="/" className="flex items-center gap-2">
-              <Bot className="h-10 w-10 text-primary-500" />
+              <Bot className="h-10 w-10 text-accent" />
             </Link>
           </div>
           <CardTitle className="text-2xl">Create Account</CardTitle>
@@ -63,13 +63,13 @@ export default function SignupPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="p-3 rounded-lg bg-alert-500/20 border border-alert-500/30 text-alert-500 text-sm">
+              <div className="p-3 rounded-lg bg-error/15 border border-error/25 text-error-muted text-sm">
                 {error}
               </div>
             )}
 
             <div className="space-y-2">
-              <label className="text-sm text-text-secondary">Email</label>
+              <label className="text-sm text-muted-foreground">Email</label>
               <Input
                 type="email"
                 value={email}
@@ -80,23 +80,23 @@ export default function SignupPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm text-text-secondary">Password</label>
+              <label className="text-sm text-muted-foreground">Password</label>
               <Input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Enter your password"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm text-text-secondary">Confirm Password</label>
+              <label className="text-sm text-muted-foreground">Confirm Password</label>
               <Input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Confirm your password"
                 required
               />
             </div>
@@ -106,9 +106,9 @@ export default function SignupPage() {
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-text-muted">
+          <p className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{' '}
-            <Link href="/login" className="text-primary-500 hover:underline">
+            <Link href="/login" className="text-accent hover:underline">
               Sign in
             </Link>
           </p>
