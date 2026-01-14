@@ -1,0 +1,134 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { Bot } from 'lucide-react'
+import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui'
+import { useAuth } from '@/hooks/useAuth'
+
+export default function LoginPage() {
+  const router = useRouter()
+  const { signIn, signInWithOAuth } = useAuth()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setIsLoading(true)
+
+    try {
+      const result = await signIn(email, password)
+      if (result.success) {
+        router.push('/dashboard')
+      } else {
+        setError(result.error || 'Failed to sign in')
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleOAuthSignIn = async (provider: 'github' | 'google') => {
+    setError('')
+    try {
+      const result = await signInWithOAuth(provider)
+      if (!result.success) {
+        setError(result.error || `Failed to sign in with ${provider}`)
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred')
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-dark-bg p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <Link href="/" className="flex items-center gap-2">
+              <Bot className="h-10 w-10 text-primary-500" />
+            </Link>
+          </div>
+          <CardTitle className="text-2xl">Welcome Back</CardTitle>
+          <CardDescription>
+            Sign in to your AutoBrowse account
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 rounded-lg bg-alert-500/20 border border-alert-500/30 text-alert-500 text-sm">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-sm text-text-secondary">Email</label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm text-text-secondary">Password</label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+              />
+            </div>
+
+            <Button type="submit" className="w-full" isLoading={isLoading}>
+              Sign In
+            </Button>
+          </form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-dark-border" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-dark-surface text-text-muted">Or continue with</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              variant="outline"
+              onClick={() => handleOAuthSignIn('github')}
+              type="button"
+            >
+              GitHub
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleOAuthSignIn('google')}
+              type="button"
+            >
+              Google
+            </Button>
+          </div>
+
+          <p className="mt-6 text-center text-sm text-text-muted">
+            Don&apos;t have an account?{' '}
+            <Link href="/signup" className="text-primary-500 hover:underline">
+              Sign up
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
