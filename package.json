@@ -17,7 +17,8 @@
     "build:frontend": "cd frontend && npm run build",
     "install:all": "npm install && npm install --workspaces",
     "clean": "rm -rf node_modules frontend/node_modules backend/node_modules shared/node_modules",
-    "type-check": "npm run type-check --workspaces"
+    "type-check": "npm run type-check --workspaces",
+    "build": "tsc"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
