@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
@@ -11,18 +11,17 @@ import {
   History,
   Settings,
   LogOut,
-  Menu,
-  Zap,
+  Plus,
   BookOpen,
   ShoppingBag,
   BarChart3,
   ChevronDown,
-  FileText,
+  ChevronLeft,
+  ChevronRight,
   CreditCard,
   User,
-  X,
+  Key,
 } from 'lucide-react'
-import { Button } from '@/components/ui'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -33,14 +32,14 @@ const navigation = [
   { name: 'Skills', href: '/dashboard/skills', icon: BookOpen },
   { name: 'Marketplace', href: '/dashboard/marketplace', icon: ShoppingBag },
   { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
-  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ]
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { user } = useAppStore()
   const { signOut: authSignOut } = useAuth()
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
 
   const handleSignOut = async () => {
@@ -50,54 +49,116 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <nav className="fixed top-0 left-0 right-0 h-14 bg-surface border-b border-border z-50">
-        <div className="flex items-center justify-between h-full px-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 hover:bg-surface-elevated transition-colors"
-            >
-              {isSidebarOpen ? (
-                <X className="h-5 w-5 text-muted-foreground" />
-              ) : (
-                <Menu className="h-5 w-5 text-muted-foreground" />
-              )}
-            </button>
-
+    <div className="flex h-screen bg-background overflow-hidden">
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          'flex flex-col h-full bg-surface border-r border-border transition-all duration-300',
+          isCollapsed ? 'w-16' : 'w-64'
+        )}
+      >
+        {/* Logo Section */}
+        <div className={cn(
+          "flex items-center p-4 border-b border-border",
+          isCollapsed ? "justify-center" : "justify-between"
+        )}>
+          {!isCollapsed && (
             <Link href="/dashboard" className="flex items-center gap-2">
-              <Bot className="h-6 w-6 text-accent" />
-              <span className="font-bold text-foreground">AutoBrowse</span>
+              <Bot className="h-7 w-7 text-accent shrink-0" />
+              <span className="font-bold text-lg text-accent">AutoBrowse</span>
             </Link>
+          )}
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isCollapsed ? (
+              <ChevronRight className="h-5 w-5" />
+            ) : (
+              <ChevronLeft className="h-5 w-5" />
+            )}
+          </button>
+        </div>
 
-            <Link
-              href="/dashboard"
-              className="hidden md:flex items-center gap-2 ml-4 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
-            >
-              <Zap className="h-4 w-4" />
-              <span>New Task</span>
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-surface-elevated border border-border">
-              <CreditCard className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-foreground">245</span>
-              <span className="text-xs text-muted-foreground">credits</span>
+        {/* Plan Badge */}
+        {!isCollapsed && (
+          <div className="mx-3 mt-3 p-3 bg-accent/10 border border-accent/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-accent" />
+                <span className="text-sm font-semibold text-accent">FREE PLAN</span>
+              </div>
+              <Key className="h-4 w-4 text-accent" />
             </div>
+            <p className="text-xs text-muted-foreground mt-1">245 Credits</p>
+          </div>
+        )}
 
-            <Button variant="default" size="sm" className="hidden md:flex">
-              Get API Key
-            </Button>
+        {/* New Task Button */}
+        <div className="p-3">
+          <Link
+            href="/dashboard"
+            className={cn(
+              'flex items-center gap-3 px-3 py-2.5 bg-accent text-white font-medium transition-colors hover:bg-accent-hover',
+              pathname === '/dashboard' && 'ring-2 ring-accent-light',
+              isCollapsed && 'justify-center px-2'
+            )}
+          >
+            <Plus className="h-5 w-5 shrink-0" />
+            {!isCollapsed && <span>New Task</span>}
+          </Link>
+        </div>
 
+        {/* Navigation */}
+        <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
+          {navigation.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-accent/15 text-accent'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated',
+                  isCollapsed && 'justify-center px-2'
+                )}
+                title={isCollapsed ? item.name : undefined}
+              >
+                <item.icon className="h-5 w-5 shrink-0" />
+                {!isCollapsed && <span>{item.name}</span>}
+              </Link>
+            )
+          })}
+        </nav>
+
+        {/* Bottom Section */}
+        <div className="mt-auto border-t border-border">
+          {/* User Section */}
+          <div className="p-3">
             <div className="relative">
               <button
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center gap-2 p-1 hover:bg-surface-elevated transition-colors"
+                className={cn(
+                  'w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors',
+                  isCollapsed && 'justify-center px-2'
+                )}
               >
-                <div className="w-8 h-8 bg-accent/20 flex items-center justify-center">
-                  <User className="h-4 w-4 text-accent" />
+                <div className="w-8 h-8 bg-accent/20 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-bold text-accent">
+                    {user?.email?.charAt(0).toUpperCase() || 'U'}
+                  </span>
                 </div>
+                {!isCollapsed && (
+                  <>
+                    <span className="flex-1 text-left truncate">
+                      {user?.email?.split('@')[0] || 'User'}
+                    </span>
+                    <ChevronDown className={cn('h-4 w-4 transition-transform', isUserMenuOpen && 'rotate-180')} />
+                  </>
+                )}
               </button>
 
               {isUserMenuOpen && (
@@ -106,12 +167,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     className="fixed inset-0 z-10"
                     onClick={() => setIsUserMenuOpen(false)}
                   />
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-surface border border-border shadow-xl z-20">
-                    <div className="p-3 border-b border-border">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {user?.email?.split('@')[0] || 'User'}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">
+                  <div className={cn(
+                    'absolute bottom-full left-0 mb-2 bg-surface border border-border shadow-xl z-20',
+                    isCollapsed ? 'w-48 left-full ml-2 bottom-0' : 'w-full'
+                  )}>
+                    <div className="p-2 border-b border-border">
+                      <p className="text-sm font-medium text-foreground truncate px-2">
                         {user?.email || 'guest@example.com'}
                       </p>
                     </div>
@@ -129,7 +190,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                         className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
                       >
                         <LogOut className="h-4 w-4" />
-                        <span>Sign Out</span>
+                        <span>Log out</span>
                       </button>
                     </div>
                   </div>
@@ -137,55 +198,31 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               )}
             </div>
           </div>
-        </div>
-      </nav>
 
-      <aside
-        className={cn(
-          'fixed top-14 left-0 z-40 h-[calc(100vh-3.5rem)] w-64 bg-surface border-r border-border transform transition-transform duration-300 ease-in-out',
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        )}
-      >
-        <nav className="flex flex-col h-full p-3 space-y-1 overflow-y-auto">
-          <div className="mb-4">
-            <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-              Navigation
-            </h3>
-            {navigation.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  onClick={() => setIsSidebarOpen(false)}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-accent/15 text-accent'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
-                  )}
-                >
-                  <item.icon className="h-5 w-5" />
-                  <span>{item.name}</span>
-                </Link>
-              )
-            })}
+          {/* Settings Link */}
+          <div className="px-3 pb-3">
+            <Link
+              href="/dashboard/settings"
+              className={cn(
+                'flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors',
+                pathname === '/dashboard/settings'
+                  ? 'bg-accent/15 text-accent'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated',
+                isCollapsed && 'justify-center px-2'
+              )}
+              title={isCollapsed ? 'Settings' : undefined}
+            >
+              <Settings className="h-5 w-5 shrink-0" />
+              {!isCollapsed && <span>Settings</span>}
+            </Link>
           </div>
-        </nav>
+        </div>
       </aside>
 
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      <main className="pt-14 min-h-screen">
-        <div className="flex items-center justify-center min-h-[calc(100vh-3.5rem)]">
-          <div className="w-full max-w-5xl px-4 lg:px-8 py-12">
-            {children}
-          </div>
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="h-full px-4 py-6">
+          {children}
         </div>
       </main>
     </div>

@@ -127,6 +127,7 @@ export type ActionType =
   | 'drag'
   | 'upload'
   | 'download'
+  | 'highlight'
 
 export interface BrowserAction {
   id: string
@@ -248,4 +249,120 @@ export interface PaginatedResponse<T = any> {
   page: number
   limit: number
   hasMore: boolean
+}
+
+// ============================================
+// PYTHON BRIDGE TYPES
+// ============================================
+
+export type PythonServiceType = 'browser_use' | 'owl'
+
+export interface PythonMessage {
+  id: string
+  type: PythonServiceType
+  method: string
+  params: Record<string, any>
+  sessionId?: string
+}
+
+export interface PythonResponse {
+  id: string
+  success: boolean
+  data?: any
+  error?: string
+  sessionId?: string
+}
+
+export interface PythonProcessConfig {
+  maxProcesses?: number
+  timeout?: number
+  maxMemoryMB?: number
+  maxCpuPercent?: number
+}
+
+export interface PythonProcessInfo {
+  pid: number
+  status: 'running' | 'stopped' | 'crashed'
+  startTime: Date
+  process: any
+  memoryUsageMB?: number
+  cpuPercent?: number
+}
+
+// ============================================
+// BROWSER-USE TYPES
+// ============================================
+
+export interface DomTree {
+  url: string
+  title: string
+  elements: DomElement[]
+}
+
+export interface DomElement {
+  id: string
+  tag: string
+  text?: string
+  attributes: Record<string, string>
+  children?: DomElement[]
+  coordinates?: { x: number; y: number }
+  boundingBox?: { x: number; y: number; width: number; height: number }
+}
+
+export interface BrowserUseAction {
+  type: ActionType
+  description: string
+  selector?: string
+  coordinates?: { x: number; y: number }
+  value?: string
+  waitAfter?: number
+}
+
+export interface BrowserUseResult {
+  success: boolean
+  action: BrowserUseAction
+  screenshot?: string
+  extractedData?: any
+  error?: string
+  duration: number
+}
+
+export interface BrowserUseSessionConfig {
+  headless: boolean
+  viewport: { width: number; height: number }
+  userAgent?: string
+  proxy?: { server: string; username?: string; password?: string }
+  highlightElements: boolean
+}
+
+// ============================================
+// OWL TYPES
+// ============================================
+
+export interface OwlAnalysisResult {
+  elements: OwlElement[]
+  text: string[]
+  layout: OwlLayout
+}
+
+export interface OwlElement {
+  type: 'button' | 'link' | 'input' | 'text' | 'image' | 'dropdown'
+  coordinates: { x: number; y: number }
+  boundingBox: { x: number; y: number; width: number; height: number }
+  text?: string
+  confidence: number
+}
+
+export interface OwlLayout {
+  header: { x: number; y: number; width: number; height: number }
+  main: { x: number; y: number; width: number; height: number }
+  sidebar: { x: number; y: number; width: number; height: number }
+  footer: { x: number; y: number; width: number; height: number }
+}
+
+export interface OwlConfig {
+  ocrEnabled: boolean
+  elementDetection: boolean
+  layoutAnalysis: boolean
+  confidenceThreshold: number
 }

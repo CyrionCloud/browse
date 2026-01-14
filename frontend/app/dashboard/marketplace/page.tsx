@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { Sidebar } from '@/components/layout/Sidebar'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Badge, Input } from '@/components/ui'
 import { Search, ShoppingBag, Star, Download, TrendingUp, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -101,8 +100,7 @@ export default function MarketplacePage() {
   })
 
   return (
-    <Sidebar>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Skill Marketplace</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -203,7 +201,6 @@ export default function MarketplacePage() {
             </p>
           </div>
         )}
-      </div>
-    </Sidebar>
+    </div>
   )
 }

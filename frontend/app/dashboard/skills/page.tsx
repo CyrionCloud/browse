@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Sidebar } from '@/components/layout/Sidebar'
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge, Input, Switch } from '@/components/ui'
 import { PageLoader } from '@/components/LoadingState'
 import { skillsApi } from '@/lib/api'
@@ -66,16 +65,11 @@ export default function SkillsPage() {
   })
 
   if (isLoading) {
-    return (
-      <Sidebar>
-        <PageLoader message="Loading skills..." />
-      </Sidebar>
-    )
+    return <PageLoader message="Loading skills..." />
   }
 
   return (
-    <Sidebar>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Automation Skills</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -166,7 +160,6 @@ export default function SkillsPage() {
             </p>
           </div>
         )}
-      </div>
-    </Sidebar>
+    </div>
   )
 }

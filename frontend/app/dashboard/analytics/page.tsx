@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { Sidebar } from '@/components/layout/Sidebar'
+import { useState, useEffect } from 'react'
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@/components/ui'
+import { sessionsApi } from '@/lib/api'
 import { PageLoader } from '@/components/LoadingState'
 import { useAppStore } from '@/store/useAppStore'
 import { cn, formatDate } from '@/lib/utils'
@@ -20,8 +20,24 @@ import {
 } from 'lucide-react'
 
 export default function AnalyticsPage() {
-  const { sessions } = useAppStore()
+  const { sessions, setSessions } = useAppStore()
   const [timeRange, setTimeRange] = useState('7d')
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    loadSessions()
+  }, [])
+
+  const loadSessions = async () => {
+    try {
+      const data = await sessionsApi.getAll()
+      setSessions(data)
+    } catch (error) {
+      console.error('Failed to load sessions:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const stats = {
     totalSessions: sessions.length,
@@ -46,16 +62,19 @@ export default function AnalyticsPage() {
 
   const recentActivity = sessions.slice(0, 5).map(session => ({
     id: session.id,
-    action: session.status === 'completed' ? 'Session completed' : 
+    action: session.status === 'completed' ? 'Session completed' :
             session.status === 'failed' ? 'Session failed' :
             session.status === 'active' ? 'Session started' : 'Session created',
     time: formatDate(session.created_at),
     status: session.status,
   }))
 
+  if (isLoading) {
+    return <PageLoader message="Loading analytics..." />
+  }
+
   return (
-    <Sidebar>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Analytics</h1>
@@ -276,7 +295,6 @@ export default function AnalyticsPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
-    </Sidebar>
+    </div>
   )
 }

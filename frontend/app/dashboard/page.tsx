@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import DashboardLayout from './layout'
 import { TaskInputPanel } from './TaskInputPanel'
 import { useAuth } from '@/hooks/useAuth'
 import { useAppStore } from '@/store/useAppStore'
@@ -78,22 +77,16 @@ export default function DashboardPage() {
   }
 
   if (!initialized) {
-    return (
-      <DashboardLayout>
-        <PageLoader message="Loading..." />
-      </DashboardLayout>
-    )
+    return <PageLoader message="Loading..." />
   }
 
   return (
-    <DashboardLayout>
-      <TaskInputPanel
-        value={taskInput}
-        onChange={setTaskInput}
-        onSubmit={handleCreateSession}
-        selectedMode={selectedMode}
-        onModeChange={setSelectedMode}
-      />
-    </DashboardLayout>
+    <TaskInputPanel
+      value={taskInput}
+      onChange={setTaskInput}
+      onSubmit={handleCreateSession}
+      selectedMode={selectedMode}
+      onModeChange={setSelectedMode}
+    />
   )
 }

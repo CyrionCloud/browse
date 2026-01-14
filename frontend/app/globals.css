@@ -8,17 +8,23 @@
   --surface-hover: #363636;
   --border: #3d3d3d;
   --border-soft: #4a4a4a;
-  --accent: #6366f1;
-  --accent-muted: #818cf8;
-  --accent-hover: #4f46e5;
+
+  /* Light Orange Accent */
+  --accent: #f97316;
+  --accent-muted: #fb923c;
+  --accent-hover: #ea580c;
+  --accent-light: #fed7aa;
+
   --error: #dc2626;
   --error-muted: #ef4444;
   --error-hover: #b91c1c;
+  --success: #22c55e;
+  --warning: #eab308;
   --muted: #a1a1aa;
   --muted-foreground: #71717a;
   --card: #242424;
   --input: #2d2d2d;
-  --ring: #6366f1;
+  --ring: #f97316;
 }
 
 @theme inline {
@@ -26,13 +32,17 @@
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
   --color-surface-elevated: var(--surface-elevated);
+  --color-surface-hover: var(--surface-hover);
   --color-border: var(--border);
   --color-border-soft: var(--border-soft);
   --color-accent: var(--accent);
   --color-accent-muted: var(--accent-muted);
   --color-accent-hover: var(--accent-hover);
+  --color-accent-light: var(--accent-light);
   --color-error: var(--error);
   --color-error-muted: var(--error-muted);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-card: var(--card);
@@ -44,6 +54,7 @@
 
 * {
   box-sizing: border-box;
+  border-radius: 0 !important;
 }
 
 body {
@@ -63,7 +74,6 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -78,6 +88,24 @@ body {
 
 .blur-border {
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.glass-border {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glow {
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.3);
+}
+
+.glow-sm {
+  box-shadow: 0 0 10px rgba(249, 115, 22, 0.2);
 }
 
 @keyframes fade-in {
@@ -100,6 +128,11 @@ body {
   to { transform: rotate(360deg); }
 }
 
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
 }
@@ -114,6 +147,10 @@ body {
 
 .animate-spin {
   animation: spin 1s linear infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
 }
 
 :focus-visible {
