@@ -17,6 +17,8 @@ dist/
 .env
 .env*.local
 .env.production
+.env.development
+.env.test
 
 # Logs
 logs/
@@ -50,7 +52,30 @@ temp-owl/
 
 # Backend specific
 backend/logs/
+backend/*.log
 
 # Playwright
 playwright-report/
 test-results/
+
+# Database
+*.sqlite
+*.db
+*.sqlite3
+
+# Cache
+.cache/
+.eslintcache
+.stylelintcache
+
+# Sensitive credentials
+*.pem
+*.key
+*.crt
+credentials.json
+service-account*.json
+
+# Temporary files
+tmp/
+temp/
+*.tmp
