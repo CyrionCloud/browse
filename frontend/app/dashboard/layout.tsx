@@ -19,6 +19,8 @@ import {
   ChevronDown,
   FileText,
   CreditCard,
+  User,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui'
 
@@ -27,7 +29,6 @@ interface DashboardLayoutProps {
 }
 
 const navigation = [
-  { name: 'New Task', href: '/dashboard', icon: Zap },
   { name: 'History', href: '/dashboard/history', icon: History },
   { name: 'Skills', href: '/dashboard/skills', icon: BookOpen },
   { name: 'Marketplace', href: '/dashboard/marketplace', icon: ShoppingBag },
@@ -40,9 +41,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user } = useAppStore()
   const { signOut: authSignOut } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [isProjectOpen, setIsProjectOpen] = useState(false)
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
 
   const handleSignOut = async () => {
+    setIsUserMenuOpen(false)
     await authSignOut()
     window.location.href = '/'
   }
@@ -51,48 +53,33 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="min-h-screen bg-background">
       <nav className="fixed top-0 left-0 right-0 h-14 bg-surface border-b border-border z-50">
         <div className="flex items-center justify-between h-full px-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-2 hover:bg-surface-elevated transition-colors"
+            >
+              {isSidebarOpen ? (
+                <X className="h-5 w-5 text-muted-foreground" />
+              ) : (
+                <Menu className="h-5 w-5 text-muted-foreground" />
+              )}
+            </button>
+
             <Link href="/dashboard" className="flex items-center gap-2">
-              <Bot className="h-7 w-7 text-accent" />
-              <span className="font-bold text-lg text-foreground">AutoBrowse</span>
+              <Bot className="h-6 w-6 text-accent" />
+              <span className="font-bold text-foreground">AutoBrowse</span>
             </Link>
 
-            <div className="hidden md:flex items-center gap-1 ml-8">
-              <button
-                onClick={() => setIsProjectOpen(!isProjectOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
-              >
-                <span>Default Project</span>
-                <ChevronDown className="h-3 w-3" />
-              </button>
-
-              <Link
-                href="/dashboard"
-                className="flex items-center gap-2 ml-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
-              >
-                <Zap className="h-4 w-4" />
-                <span>New Session</span>
-              </Link>
-            </div>
+            <Link
+              href="/dashboard"
+              className="hidden md:flex items-center gap-2 ml-4 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
+            >
+              <Zap className="h-4 w-4" />
+              <span>New Task</span>
+            </Link>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Link
-              href="/docs"
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
-            >
-              <BookOpen className="h-4 w-4" />
-              <span>Docs</span>
-            </Link>
-
-            <Link
-              href="/changelog"
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
-            >
-              <FileText className="h-4 w-4" />
-              <span>Changelog</span>
-            </Link>
-
+          <div className="flex items-center gap-2">
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-surface-elevated border border-border">
               <CreditCard className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium text-foreground">245</span>
@@ -105,11 +92,49 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
             <div className="relative">
               <button
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="p-2 hover:bg-surface-elevated transition-colors"
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                className="flex items-center gap-2 p-1 hover:bg-surface-elevated transition-colors"
               >
-                <Menu className="h-5 w-5 text-muted-foreground" />
+                <div className="w-8 h-8 bg-accent/20 flex items-center justify-center">
+                  <User className="h-4 w-4 text-accent" />
+                </div>
               </button>
+
+              {isUserMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setIsUserMenuOpen(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-surface border border-border shadow-xl z-20">
+                    <div className="p-3 border-b border-border">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {user?.email?.split('@')[0] || 'User'}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {user?.email || 'guest@example.com'}
+                      </p>
+                    </div>
+                    <div className="p-1">
+                      <Link
+                        href="/dashboard/settings"
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
+                      >
+                        <Settings className="h-4 w-4" />
+                        <span>Settings</span>
+                      </Link>
+                      <button
+                        onClick={handleSignOut}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -118,43 +143,21 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <aside
         className={cn(
           'fixed top-14 left-0 z-40 h-[calc(100vh-3.5rem)] w-64 bg-surface border-r border-border transform transition-transform duration-300 ease-in-out',
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="flex flex-col h-full">
-          <div className="p-4 border-b border-border">
-            <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 bg-accent/20 flex items-center justify-center">
-                <span className="text-sm font-medium text-accent">
-                  {user?.email?.charAt(0).toUpperCase() || 'U'}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
-                  {user?.email?.split('@')[0] || 'User'}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {user?.email || 'guest@example.com'}
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              onClick={handleSignOut}
-              className="w-full justify-start text-muted-foreground hover:text-foreground"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
-          </div>
-
-          <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        <nav className="flex flex-col h-full p-3 space-y-1 overflow-y-auto">
+          <div className="mb-4">
+            <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+              Navigation
+            </h3>
             {navigation.map((item) => {
               const isActive = pathname === item.href
               return (
                 <Link
                   key={item.name}
                   href={item.href}
+                  onClick={() => setIsSidebarOpen(false)}
                   className={cn(
                     'flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors',
                     isActive
@@ -167,8 +170,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 </Link>
               )
             })}
-          </nav>
-        </div>
+          </div>
+        </nav>
       </aside>
 
       {isSidebarOpen && (
@@ -178,9 +181,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         />
       )}
 
-      <main className="pt-14 lg:pl-64 min-h-screen">
-        <div className="max-w-4xl mx-auto px-4 lg:px-8 py-8">
-          {children}
+      <main className="pt-14 min-h-screen">
+        <div className="flex items-center justify-center min-h-[calc(100vh-3.5rem)]">
+          <div className="w-full max-w-5xl px-4 lg:px-8 py-12">
+            {children}
+          </div>
         </div>
       </main>
     </div>

@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui'
 import {
   ArrowRight,
   FileText,
@@ -46,23 +45,23 @@ export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onMode
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false)
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
-      <div className="flex items-center justify-center mb-2">
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] pb-[50px]">
+      <div className="flex items-center justify-center mb-4">
         <span className="inline-flex items-center px-3 py-1 text-xs font-medium bg-accent/10 text-accent border border-accent/20">
           Pay As You Go · Upgrade
         </span>
       </div>
 
-      <h1 className="text-2xl font-semibold text-center text-foreground mb-6">
+      <h1 className="text-2xl font-semibold text-center text-foreground mb-8">
         What task should I handle?
       </h1>
 
-      <div className="w-full max-w-2xl relative bg-surface border border-border p-4 shadow-lg">
+      <div className="w-full max-w-3xl relative bg-surface border border-border p-5 shadow-lg">
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Message Browser Use..."
-          className="w-full min-h-[120px] bg-transparent text-foreground placeholder:text-muted-foreground resize-none focus:outline-none text-base"
+          className="w-full min-h-[140px] bg-transparent text-foreground placeholder:text-muted-foreground resize-none focus:outline-none text-base"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault()
@@ -71,7 +70,7 @@ export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onMode
           }}
         />
 
-        <div className="flex items-center justify-between pt-3 border-t border-border/50">
+        <div className="flex items-center justify-between pt-4 border-t border-border/50">
           <div className="flex items-center gap-1">
             <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors">
               <FileText className="h-4 w-4" />
@@ -130,7 +129,7 @@ export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onMode
         onClick={onSubmit}
         disabled={!value.trim()}
         className={cn(
-          'w-full max-w-2xl h-12 flex items-center justify-center gap-2 transition-colors',
+          'w-full max-w-3xl h-12 flex items-center justify-center gap-2 transition-colors mt-4',
           value.trim()
             ? 'bg-accent text-white hover:bg-accent-hover'
             : 'bg-surface-elevated text-muted-foreground cursor-not-allowed'
@@ -140,7 +139,7 @@ export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onMode
         <ArrowRight className="h-4 w-4" />
       </button>
 
-      <div className="flex flex-wrap justify-center gap-2 pt-4">
+      <div className="flex flex-wrap justify-center gap-2 pt-6">
         {quickActions.map((action) => (
           <button
             key={action.id}
