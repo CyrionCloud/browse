@@ -54,14 +54,13 @@ app.use(express.urlencoded({ extended: true }))
 // Apply rate limiting to all routes
 app.use(rateLimiter())
 
+import { performHealthCheck } from './utils/health'
+
 // Health check endpoint (no auth required)
-app.get('/health', (_req, res) => {
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    connections: wsServer.getConnectedClients()
-  })
+app.get('/health', async (_req, res) => {
+  const result = await performHealthCheck()
+  const statusCode = result.status === 'healthy' ? 200 : result.status === 'degraded' ? 200 : 503
+  res.status(statusCode).json(result)
 })
 
 // API Routes
