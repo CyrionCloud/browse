@@ -150,9 +150,10 @@ export interface ActionResult {
   action: string
   target?: string
   value?: string
+  description?: string
   screenshot?: Buffer | string
   error?: string
-  duration: number
+  duration?: number
 }
 
 // ============================================
@@ -320,7 +321,7 @@ export interface BrowserUseAction {
 
 export interface BrowserUseResult {
   success: boolean
-  action: BrowserUseAction
+  action: string
   screenshot?: string
   extractedData?: any
   error?: string

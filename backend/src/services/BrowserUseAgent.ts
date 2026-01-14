@@ -1,13 +1,13 @@
 import { EventEmitter } from 'events'
 import { logger } from '../utils/logger'
 import { PythonBridge } from './PythonBridge'
+import { AgentService } from './AgentService'
 import type {
-  BrowserUseAction,
   BrowserUseResult,
-  BrowserUseSessionConfig,
   DomTree,
   DomElement,
-  ActionResult
+  ActionResult,
+  BrowserUseSessionConfig
 } from '@autobrowse/shared'
 
 const DEFAULT_CONFIG: BrowserUseSessionConfig = {
@@ -44,57 +44,18 @@ export class BrowserUseAgent extends EventEmitter {
     logger.info('BrowserUseAgent initialized')
   }
 
-  async navigate(url: string): Promise<BrowserUseResult> {
+  private async executeAction(actionType: string, description: string, params: Record<string, any>): Promise<BrowserUseResult> {
     const startTime = Date.now()
 
-    logger.info('Navigating to URL', { url })
+    logger.info('Executing action', { actionType, description, params })
 
     try {
-      await this.bridge.call('browser_use', 'navigate', { url })
-
-      this.currentUrl = url
+      const resultData = await this.bridge.call('browser_use', 'action', params)
 
       const result: BrowserUseResult = {
         success: true,
-        action: { type: 'navigate', description: `Navigate to ${url}` },
-        duration: Date.now() - startTime
-      }
-
-      this.emit('action_executed', result)
-      return result
-    } catch (error: any) {
-      const result: BrowserUseResult = {
-        success: false,
-        action: { type: 'navigate', description: `Navigate to ${url}` },
-        error: error.message || 'Navigation failed',
-        duration: Date.now() - startTime
-      }
-
-      this.emit('action_failed', result)
-      return result
-    }
-  }
-
-  async action(description: string, params?: { selector?: string; coordinates?: { x: number; y: number }; value?: string }): Promise<BrowserUseResult> {
-    const startTime = Date.now()
-
-    logger.info('Executing action', { description, params })
-
-    try {
-      const resultData = await this.bridge.call('browser_use', 'action', {
+        action: actionType as any,
         description,
-        ...params
-      })
-
-      const result: BrowserUseResult = {
-        success: true,
-        action: {
-          type: 'click',
-          description,
-          selector: params?.selector,
-          coordinates: params?.coordinates,
-          value: params?.value
-        },
         screenshot: resultData.screenshot,
         duration: Date.now() - startTime
       }
@@ -104,12 +65,8 @@ export class BrowserUseAgent extends EventEmitter {
     } catch (error: any) {
       const result: BrowserUseResult = {
         success: false,
-        action: {
-          type: 'click',
-          description,
-          selector: params?.selector,
-          coordinates: params?.coordinates
-        },
+        action: actionType as any,
+        description,
         error: error.message || 'Action failed',
         duration: Date.now() - startTime
       }
@@ -119,16 +76,20 @@ export class BrowserUseAgent extends EventEmitter {
     }
   }
 
+  async navigate(url: string): Promise<BrowserUseResult> {
+    return this.executeAction('navigate', `Navigate to ${url}`, { url })
+  }
+
   async click(selector: string): Promise<BrowserUseResult> {
-    return this.action(`Click element`, { selector })
+    return this.executeAction('click', 'Click element', { selector })
   }
 
   async type(selector: string, text: string): Promise<BrowserUseResult> {
-    return this.action(`Type text`, { selector, value: text })
+    return this.executeAction('type', 'Type text', { selector, value: text })
   }
 
   async scroll(direction: 'up' | 'down', amount: number = 500): Promise<BrowserUseResult> {
-    return this.action(`Scroll ${direction}`, {}, {})
+    return this.executeAction('scroll', `Scroll ${direction}`, { amount })
   }
 
   async extract(selector: string): Promise<BrowserUseResult & { extractedData?: string }> {
@@ -139,9 +100,10 @@ export class BrowserUseAgent extends EventEmitter {
     try {
       const data = await this.bridge.call('browser_use', 'extract', { selector })
 
-      const result: BrowserUseResult = {
+      const result: BrowserUseResult & { extractedData?: string } = {
         success: true,
-        action: { type: 'extract', description: `Extract from ${selector}` },
+        action: 'extract' as any,
+        description: `Extract from ${selector}`,
         extractedData: data.text,
         duration: Date.now() - startTime
       }
@@ -151,7 +113,8 @@ export class BrowserUseAgent extends EventEmitter {
     } catch (error: any) {
       const result: BrowserUseResult = {
         success: false,
-        action: { type: 'extract', description: `Extract from ${selector}` },
+        action: 'extract' as any,
+        description: `Extract from ${selector}`,
         error: error.message || 'Extraction failed',
         duration: Date.now() - startTime
       }
@@ -171,7 +134,8 @@ export class BrowserUseAgent extends EventEmitter {
 
       const result: BrowserUseResult = {
         success: true,
-        action: { type: 'screenshot', description: 'Take screenshot' },
+        action: 'screenshot' as any,
+        description: 'Take screenshot',
         screenshot: data.screenshot,
         duration: Date.now() - startTime
       }
@@ -186,7 +150,8 @@ export class BrowserUseAgent extends EventEmitter {
     } catch (error: any) {
       const result: BrowserUseResult = {
         success: false,
-        action: { type: 'screenshot', description: 'Take screenshot' },
+        action: 'screenshot' as any,
+        description: 'Take screenshot',
         error: error.message || 'Screenshot failed',
         duration: Date.now() - startTime
       }
@@ -235,7 +200,8 @@ export class BrowserUseAgent extends EventEmitter {
 
       const result: BrowserUseResult = {
         success: true,
-        action: { type: 'highlight', description: `Highlight ${selector}` },
+        action: 'highlight' as any,
+        description: `Highlight ${selector}`,
         duration: Date.now() - startTime
       }
 
@@ -259,7 +225,8 @@ export class BrowserUseAgent extends EventEmitter {
 
       const result: BrowserUseResult = {
         success: true,
-        action: { type: 'wait', description: `Wait for ${selector}` },
+        action: 'wait' as any,
+        description: `Wait for ${selector}`,
         duration: Date.now() - startTime
       }
 
@@ -276,7 +243,8 @@ export class BrowserUseAgent extends EventEmitter {
     } catch (error: any) {
       const result: BrowserUseResult = {
         success: false,
-        action: { type: 'wait', description: `Wait for ${selector}` },
+        action: 'wait' as any,
+        description: `Wait for ${selector}`,
         error: error.message || 'Wait failed',
         duration: Date.now() - startTime
       }
@@ -314,6 +282,7 @@ export class BrowserUseAgent extends EventEmitter {
       const result: ActionResult = {
         success: false,
         action: 'run_agent',
+        description: 'Execute adaptive plan',
         error: error.message || 'Agent failed',
         duration: Date.now() - startTime
       }

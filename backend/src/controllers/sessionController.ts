@@ -30,8 +30,9 @@ export const createSession = asyncHandler(async (req: Request, res: Response): P
 
 export const getSession = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params
+  const sessionId = Array.isArray(id) ? id[0] : id
 
-  const session = await sessionManager.getSession(id)
+  const session = await sessionManager.getSession(sessionId)
 
   if (!session) {
     throw new NotFoundError('Session not found')
@@ -47,8 +48,9 @@ export const getSession = asyncHandler(async (req: Request, res: Response): Prom
 
 export const startSession = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params
+  const sessionId = Array.isArray(id) ? id[0] : id
 
-  const session = await sessionManager.getSession(id)
+  const session = await sessionManager.getSession(sessionId)
 
   if (!session) {
     throw new NotFoundError('Session not found')
@@ -58,17 +60,18 @@ export const startSession = asyncHandler(async (req: Request, res: Response): Pr
     throw new NotFoundError('Session not found')
   }
 
-  await sessionManager.startSession(id)
+  await sessionManager.startSession(sessionId)
 
-  logger.info('Session started via API', { sessionId: id })
+  logger.info('Session started via API', { sessionId })
 
-  res.json({ message: 'Session started', sessionId: id })
+  res.json({ message: 'Session started', sessionId })
 })
 
 export const pauseSession = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params
+  const sessionId = Array.isArray(id) ? id[0] : id
 
-  const session = await sessionManager.getSession(id)
+  const session = await sessionManager.getSession(sessionId)
 
   if (!session) {
     throw new NotFoundError('Session not found')
@@ -78,17 +81,18 @@ export const pauseSession = asyncHandler(async (req: Request, res: Response): Pr
     throw new NotFoundError('Session not found')
   }
 
-  await sessionManager.pauseSession(id)
+  await sessionManager.pauseSession(sessionId)
 
-  logger.info('Session paused via API', { sessionId: id })
+  logger.info('Session paused via API', { sessionId })
 
-  res.json({ message: 'Session paused', sessionId: id })
+  res.json({ message: 'Session paused', sessionId })
 })
 
 export const resumeSession = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params
+  const sessionId = Array.isArray(id) ? id[0] : id
 
-  const session = await sessionManager.getSession(id)
+  const session = await sessionManager.getSession(sessionId)
 
   if (!session) {
     throw new NotFoundError('Session not found')
@@ -98,17 +102,18 @@ export const resumeSession = asyncHandler(async (req: Request, res: Response): P
     throw new NotFoundError('Session not found')
   }
 
-  await sessionManager.resumeSession(id)
+  await sessionManager.resumeSession(sessionId)
 
-  logger.info('Session resumed via API', { sessionId: id })
+  logger.info('Session resumed via API', { sessionId })
 
-  res.json({ message: 'Session resumed', sessionId: id })
+  res.json({ message: 'Session resumed', sessionId })
 })
 
 export const cancelSession = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params
+  const sessionId = Array.isArray(id) ? id[0] : id
 
-  const session = await sessionManager.getSession(id)
+  const session = await sessionManager.getSession(sessionId)
 
   if (!session) {
     throw new NotFoundError('Session not found')
@@ -118,32 +123,34 @@ export const cancelSession = asyncHandler(async (req: Request, res: Response): P
     throw new NotFoundError('Session not found')
   }
 
-  await sessionManager.cancelSession(id)
+  await sessionManager.cancelSession(sessionId)
 
-  logger.info('Session cancelled via API', { sessionId: id })
+  logger.info('Session cancelled via API', { sessionId })
 
-  res.json({ message: 'Session cancelled', sessionId: id })
+  res.json({ message: 'Session cancelled', sessionId })
 })
 
 export const getUserSessions = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { userId } = req.params
+  const pathUserId = Array.isArray(userId) ? userId[0] : userId
 
   // Users can only get their own sessions
-  if (userId !== req.user?.id) {
+  if (pathUserId !== req.user?.id) {
     throw new NotFoundError('User not found')
   }
 
   const limit = parseInt(req.query.limit as string) || 20
 
-  const sessions = await sessionManager.getUserSessions(userId, limit)
+  const sessions = await sessionManager.getUserSessions(pathUserId, limit)
 
   res.json({ data: sessions })
 })
 
 export const getSessionActions = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params
+  const sessionId = Array.isArray(id) ? id[0] : id
 
-  const session = await sessionManager.getSession(id)
+  const session = await sessionManager.getSession(sessionId)
 
   if (!session) {
     throw new NotFoundError('Session not found')
@@ -153,7 +160,7 @@ export const getSessionActions = asyncHandler(async (req: Request, res: Response
     throw new NotFoundError('Session not found')
   }
 
-  const actions = await sessionManager.getSessionActions(id)
+  const actions = await sessionManager.getSessionActions(sessionId)
 
   res.json({ data: actions })
 })

@@ -103,7 +103,12 @@ export class BrowserService {
 
     try {
       const scrollAmount = direction === 'down' ? amount : -amount
-      await this.page.evaluate((scrollY) => window.scrollBy(0, scrollY), scrollAmount)
+      if (!this.page) {
+        throw new Error('Browser not initialized')
+      }
+      await this.page.evaluate((scrollY: number) => {
+        (globalThis as any).window.scrollBy(0, scrollY)
+      }, scrollAmount)
       logger.debug('Scroll complete', { direction, amount })
     } catch (error) {
       logger.error('Scroll failed', { direction, error })
