@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js'
 import { chromium } from 'playwright'
 
 interface HealthCheckResult {
@@ -14,7 +13,6 @@ interface HealthCheckResult {
 }
 
 export async function performHealthCheck(): Promise<HealthCheckResult> {
-  const startTime = Date.now()
   const result: HealthCheckResult = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -27,80 +25,62 @@ export async function performHealthCheck(): Promise<HealthCheckResult> {
     uptime: process.uptime(),
   }
 
-  const checks: Promise<void>[] = []
+  const supabaseUrl = process.env.SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY
 
-  checks.push(
-    (async () => {
-      const dbStart = Date.now()
-      try {
-        const supabase = createClient(
-          process.env.SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_KEY!
-        )
-        const { error } = await supabase.from('profiles').select('id').limit(1).single()
-        result.services.database = {
-          status: error ? 'unhealthy' : 'healthy',
-          latency: Date.now() - dbStart,
-          error: error?.message,
-        }
-      } catch (error: any) {
-        result.services.database = {
-          status: 'unhealthy',
-          latency: Date.now() - dbStart,
-          error: error.message,
-        }
+  if (!supabaseUrl || !supabaseKey) {
+    result.services.database = {
+      status: 'unhealthy',
+      error: 'Supabase credentials not configured',
+    }
+  } else {
+    const dbStart = Date.now()
+    try {
+      const response = await fetch(`${supabaseUrl}/rest/v1/profiles?select=id&limit=1`, {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+        },
+      })
+      result.services.database = {
+        status: response.ok ? 'healthy' : 'unhealthy',
+        latency: Date.now() - dbStart,
+        error: response.ok ? undefined : `HTTP ${response.status}`,
       }
-    })()
-  )
-
-  checks.push(
-    (async () => {
-      try {
-        if (process.env.ANTHROPIC_API_KEY) {
-          result.services.anthropic = { status: 'healthy' }
-        } else {
-          result.services.anthropic = {
-            status: 'unhealthy',
-            error: 'ANTHROPIC_API_KEY not configured',
-          }
-        }
-      } catch (error: any) {
-        result.services.anthropic = {
-          status: 'unhealthy',
-          error: error.message,
-        }
+    } catch (error: any) {
+      result.services.database = {
+        status: 'unhealthy',
+        latency: Date.now() - dbStart,
+        error: error.message,
       }
-    })()
-  )
+    }
+  }
 
-  checks.push(
-    (async () => {
-      try {
-        const browser = await chromium.launch({ headless: true })
-        await browser.close()
-        result.services.playwright = { status: 'healthy' }
-      } catch (error: any) {
-        result.services.playwright = {
-          status: 'unhealthy',
-          error: error.message,
-        }
-      }
-    })()
-  )
+  if (process.env.ANTHROPIC_API_KEY) {
+    result.services.anthropic = { status: 'healthy' }
+  } else {
+    result.services.anthropic = {
+      status: 'unhealthy',
+      error: 'ANTHROPIC_API_KEY not configured',
+    }
+  }
 
-  await Promise.allSettled(checks)
+  try {
+    await chromium.launch({ headless: true })
+    result.services.playwright = { status: 'healthy' }
+  } catch (error: any) {
+    result.services.playwright = {
+      status: 'unhealthy',
+      error: error.message.includes('Executable') 
+        ? 'Playwright browsers not installed. Run: npx playwright install'
+        : error.message,
+    }
+  }
 
-  const hasUnhealthy = Object.values(result.services).some((s) => s.status === 'unhealthy')
-  const hasDegraded = Object.values(result.services).some((s) => s.status === 'unhealthy')
+  const unhealthyCount = Object.values(result.services).filter(s => s.status === 'unhealthy').length
+  const degradedCount = Object.values(result.services).filter(s => s.status === 'unhealthy').length
 
-  result.status = hasUnhealthy ? 'unhealthy' : hasDegraded ? 'degraded' : 'healthy'
+  result.status = unhealthyCount > 1 ? 'unhealthy' : degradedCount > 0 ? 'degraded' : 'healthy'
 
   return result
-}
-
-export function formatHealthResponse(result: HealthCheckResult, totalLatency: number) {
-  return {
-    ...result,
-    totalLatency,
-  }
 }

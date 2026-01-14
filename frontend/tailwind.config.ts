@@ -42,13 +42,15 @@ const config: Config = {
         'ring': '#6366f1',
       },
       fontFamily: {
-        mono: ['var(--font-geist-mono)', 'ui-monospace', 'monospace'],
-        sans: ['var(--font-geist-sans)', 'ui-sans-serif', 'system-ui'],
+        mono: ['ui-monospace', 'monospace'],
+        sans: ['var(--font-plex-sans)', 'ui-sans-serif', 'system-ui'],
       },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-out',
         'slide-up': 'slideUp 0.3s ease-out',
         'slide-down': 'slideDown 0.3s ease-out',
+        'slide-in-left': 'slideInLeft 0.3s ease-out',
+        'slide-out-left': 'slideOutLeft 0.3s ease-out',
         'spin': 'spin 1s linear infinite',
       },
       keyframes: {
@@ -63,6 +65,14 @@ const config: Config = {
         slideDown: {
           '0%': { transform: 'translateY(-10px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        slideInLeft: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(0)' },
+        },
+        slideOutLeft: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-100%)' },
         },
         spin: {
           '0%': { transform: 'rotate(0deg)' },

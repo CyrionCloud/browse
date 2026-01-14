@@ -13,8 +13,13 @@ import {
   Menu,
   X,
   Zap,
+  BookOpen,
+  BarChart3,
+  ShoppingBag,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui'
 
 interface SidebarProps {
@@ -25,11 +30,15 @@ export function Sidebar({ children }: SidebarProps) {
   const pathname = usePathname()
   const { user, signOut } = useAuth()
   const { wsConnected } = useAppStore()
-  const [mobileOpen, setMobileOpen] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isMobileOpen, setIsMobileOpen] = useState(false)
 
   const navigation = [
     { name: 'New Task', href: '/dashboard', icon: Zap },
     { name: 'History', href: '/dashboard/history', icon: History },
+    { name: 'Skills', href: '/dashboard/skills', icon: BookOpen },
+    { name: 'Marketplace', href: '/dashboard/marketplace', icon: ShoppingBag },
+    { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
   ]
 
@@ -38,84 +47,127 @@ export function Sidebar({ children }: SidebarProps) {
     window.location.href = '/'
   }
 
+  const SidebarContent = () => (
+    <>
+      <div className="flex items-center justify-between p-4 border-b border-border">
+        {!isCollapsed && (
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <Bot className="h-8 w-8 text-accent" />
+            <span className="font-bold text-lg text-foreground">AutoBrowse</span>
+          </Link>
+        )}
+        {isCollapsed && (
+          <Link href="/dashboard" className="flex justify-center w-full">
+            <Bot className="h-8 w-8 text-accent" />
+          </Link>
+        )}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="hidden lg:flex items-center justify-center p-1.5 rounded-md hover:bg-surface-hover text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {isCollapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </button>
+      </div>
+
+      <nav className={cn('flex-1 p-3 space-y-1', isCollapsed && 'px-2')}>
+        {navigation.map((item) => {
+          const isActive = pathname === item.href
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={cn(
+                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
+                isActive
+                  ? 'bg-accent/15 text-accent'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated',
+                isCollapsed && 'justify-center'
+              )}
+              title={isCollapsed ? item.name : undefined}
+            >
+              <item.icon className="h-5 w-5 shrink-0" />
+              {!isCollapsed && <span>{item.name}</span>}
+            </Link>
+          )
+        })}
+      </nav>
+
+      <div className={cn('p-4 border-t border-border', isCollapsed && 'px-2')}>
+        <div className={cn('flex items-center gap-3 mb-3', isCollapsed && 'justify-center')}>
+          <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center">
+            <span className="text-xs font-medium text-accent">
+              {user?.email?.charAt(0).toUpperCase() || 'G'}
+            </span>
+          </div>
+          {!isCollapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">
+                {user?.email?.split('@')[0] || 'Guest'}
+              </p>
+              <div className="flex items-center gap-1">
+                <div
+                  className={cn(
+                    'w-1.5 h-1.5 rounded-full',
+                    wsConnected ? 'bg-emerald-400' : 'bg-muted-foreground'
+                  )}
+                />
+                <span className="text-xs text-muted-foreground">
+                  {wsConnected ? 'Online' : 'Offline'}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+        {!isCollapsed ? (
+          <Button
+            variant="ghost"
+            onClick={handleSignOut}
+            className="w-full justify-start text-muted-foreground hover:text-foreground"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
+        ) : (
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center justify-center p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
+        )}
+      </div>
+    </>
+  )
+
   return (
     <div className="flex h-screen bg-background">
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 w-64 bg-surface border-r border-border transform transition-transform duration-200 lg:relative lg:translate-x-0',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          'fixed lg:relative z-50 h-full bg-surface border-r border-border transition-all duration-300 ease-in-out',
+          isCollapsed ? 'w-16' : 'w-64',
+          isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
         <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between p-4 border-b border-border">
-            <Link href="/dashboard" className="flex items-center gap-2">
-              <Bot className="h-8 w-8 text-accent" />
-              <span className="font-bold text-xl text-foreground">AutoBrowse</span>
-            </Link>
-            <button
-              onClick={() => setMobileOpen(false)}
-              className="lg:hidden p-1 rounded-md hover:bg-surface-hover"
-            >
-              <X className="h-5 w-5 text-muted-foreground" />
-            </button>
-          </div>
-
-          <nav className="flex-1 p-4 space-y-2">
-            {navigation.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-accent/10 text-accent'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
-                  )}
-                >
-                  <item.icon className="h-5 w-5" />
-                  {item.name}
-                </Link>
-              )
-            })}
-          </nav>
-
-          <div className="p-4 border-t border-border">
-            <div className="flex items-center gap-3 mb-3 px-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
-                  {user?.email || 'Guest'}
-                </p>
-                <div className="flex items-center gap-1">
-                  <div
-                    className={cn(
-                      'w-2 h-2 rounded-full',
-                      wsConnected ? 'bg-accent' : 'bg-muted-foreground'
-                    )}
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    {wsConnected ? 'Connected' : 'Disconnected'}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              onClick={handleSignOut}
-              className="w-full justify-start text-muted-foreground hover:text-foreground"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
-          </div>
+          <SidebarContent />
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <header className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-surface">
           <button
-            onClick={() => setMobileOpen(true)}
+            onClick={() => setIsMobileOpen(true)}
             className="p-2 rounded-md hover:bg-surface-hover"
           >
             <Menu className="h-5 w-5 text-muted-foreground" />
@@ -131,13 +183,6 @@ export function Sidebar({ children }: SidebarProps) {
           {children}
         </main>
       </div>
-
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
     </div>
   )
 }
