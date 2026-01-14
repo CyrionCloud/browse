@@ -46,9 +46,9 @@ export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onMode
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false)
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-6">
       <div className="flex items-center justify-center mb-2">
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-accent/10 text-accent border border-accent/20">
+        <span className="inline-flex items-center px-3 py-1 text-xs font-medium bg-accent/10 text-accent border border-accent/20">
           Pay As You Go · Upgrade
         </span>
       </div>
@@ -57,12 +57,12 @@ export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onMode
         What task should I handle?
       </h1>
 
-      <div className="relative bg-surface border border-border rounded-2xl p-4 shadow-lg">
+      <div className="w-full max-w-2xl relative bg-surface border border-border p-4 shadow-lg">
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Message Browser Use..."
-          className="w-full min-h-[100px] bg-transparent text-foreground placeholder:text-muted-foreground resize-none focus:outline-none text-sm"
+          className="w-full min-h-[120px] bg-transparent text-foreground placeholder:text-muted-foreground resize-none focus:outline-none text-base"
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault()
@@ -73,16 +73,16 @@ export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onMode
 
         <div className="flex items-center justify-between pt-3 border-t border-border/50">
           <div className="flex items-center gap-1">
-            <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors">
+            <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors">
               <FileText className="h-4 w-4" />
             </button>
-            <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors">
+            <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors">
               <Layers className="h-4 w-4" />
             </button>
-            <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors">
+            <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors">
               <User className="h-4 w-4" />
             </button>
-            <button className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors">
+            <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors">
               <Link2 className="h-4 w-4" />
             </button>
           </div>
@@ -90,7 +90,7 @@ export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onMode
           <div className="relative">
             <button
               onClick={() => setIsModeDropdownOpen(!isModeDropdownOpen)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
             >
               <span>{selectedMode.name}</span>
               <ChevronDown className="h-3 w-3" />
@@ -102,7 +102,7 @@ export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onMode
                   className="fixed inset-0 z-10"
                   onClick={() => setIsModeDropdownOpen(false)}
                 />
-                <div className="absolute bottom-full right-0 mb-2 w-56 bg-surface border border-border rounded-xl shadow-xl overflow-hidden z-20">
+                <div className="absolute bottom-full right-0 mb-2 w-56 bg-surface border border-border shadow-xl overflow-hidden z-20">
                   {executionModes.map((mode) => (
                     <button
                       key={mode.id}
@@ -130,7 +130,7 @@ export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onMode
         onClick={onSubmit}
         disabled={!value.trim()}
         className={cn(
-          'w-full h-12 rounded-xl flex items-center justify-center gap-2 transition-colors',
+          'w-full max-w-2xl h-12 flex items-center justify-center gap-2 transition-colors',
           value.trim()
             ? 'bg-accent text-white hover:bg-accent-hover'
             : 'bg-surface-elevated text-muted-foreground cursor-not-allowed'
@@ -144,7 +144,7 @@ export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onMode
         {quickActions.map((action) => (
           <button
             key={action.id}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface border border-border text-sm text-muted-foreground hover:text-foreground hover:border-accent/50 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-surface border border-border text-sm text-muted-foreground hover:text-foreground hover:border-accent/50 transition-colors"
             onClick={() => {
               onChange(`${action.name} `)
             }}

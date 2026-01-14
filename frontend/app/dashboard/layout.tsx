@@ -19,8 +19,6 @@ import {
   ChevronDown,
   FileText,
   CreditCard,
-  AlertTriangle,
-  ExternalLink,
 } from 'lucide-react'
 import { Button } from '@/components/ui'
 
@@ -62,7 +60,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="hidden md:flex items-center gap-1 ml-8">
               <button
                 onClick={() => setIsProjectOpen(!isProjectOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
               >
                 <span>Default Project</span>
                 <ChevronDown className="h-3 w-3" />
@@ -70,7 +68,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
               <Link
                 href="/dashboard"
-                className="flex items-center gap-2 ml-2 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
+                className="flex items-center gap-2 ml-2 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
               >
                 <Zap className="h-4 w-4" />
                 <span>New Session</span>
@@ -81,7 +79,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="flex items-center gap-3">
             <Link
               href="/docs"
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
             >
               <BookOpen className="h-4 w-4" />
               <span>Docs</span>
@@ -89,13 +87,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
             <Link
               href="/changelog"
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
             >
               <FileText className="h-4 w-4" />
               <span>Changelog</span>
             </Link>
 
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-elevated border border-border">
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-surface-elevated border border-border">
               <CreditCard className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium text-foreground">245</span>
               <span className="text-xs text-muted-foreground">credits</span>
@@ -108,7 +106,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="relative">
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="p-2 rounded-lg hover:bg-surface-elevated transition-colors"
+                className="p-2 hover:bg-surface-elevated transition-colors"
               >
                 <Menu className="h-5 w-5 text-muted-foreground" />
               </button>
@@ -117,29 +115,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </div>
       </nav>
 
-      <div className="fixed top-14 left-0 right-0 bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 z-40">
-        <div className="flex items-center justify-center gap-2 text-sm">
-          <AlertTriangle className="h-4 w-4 text-amber-500" />
-          <span className="text-amber-500 font-medium">API v1 Deprecation Notice:</span>
-          <span className="text-amber-600 dark:text-amber-400">
-            API v1 is deprecated. Please migrate to API v2 by February 28, 2026.
-          </span>
-          <Link href="/docs/v2-migration" className="flex items-center gap-1 text-accent hover:underline ml-2">
-            Learn more <ExternalLink className="h-3 w-3" />
-          </Link>
-        </div>
-      </div>
-
       <aside
         className={cn(
-          'fixed top-[5.5rem] left-0 z-40 h-[calc(100vh-5.5rem)] w-64 bg-surface border-r border-border transform transition-transform duration-300 ease-in-out',
+          'fixed top-14 left-0 z-40 h-[calc(100vh-3.5rem)] w-64 bg-surface border-r border-border transform transition-transform duration-300 ease-in-out',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-border">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
+                <div className="w-10 h-10 bg-accent/20 flex items-center justify-center">
                 <span className="text-sm font-medium text-accent">
                   {user?.email?.charAt(0).toUpperCase() || 'U'}
                 </span>
@@ -171,7 +156,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   key={item.name}
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                    'flex items-center gap-3 px-3 py-2.5 text-sm font-medium transition-colors',
                     isActive
                       ? 'bg-accent/15 text-accent'
                       : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
@@ -193,7 +178,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         />
       )}
 
-      <main className="pt-[7.5rem] lg:pl-64 min-h-screen">
+      <main className="pt-14 lg:pl-64 min-h-screen">
         <div className="max-w-4xl mx-auto px-4 lg:px-8 py-8">
           {children}
         </div>
