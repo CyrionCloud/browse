@@ -20,7 +20,8 @@
     "type-check": "npm run type-check --workspaces"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "typescript": "4.5.0"
   },
   "engines": {
     "node": ">=18.0.0",
