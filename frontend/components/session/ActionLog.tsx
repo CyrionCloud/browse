@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Search, MousePointer, Clock, Navigation, Eye, Scroll, Type, Download, Upload, ChevronDown, ChevronRight, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { Search, MousePointer, Clock, Navigation, Eye, Scroll, Type, Download, Upload, ChevronDown, ChevronRight, CheckCircle2, XCircle, Loader2, Camera } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card } from '@/components/ui'
 import type { BrowserAction, ActionType, SessionStatus } from '@autobrowse/shared'
