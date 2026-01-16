@@ -1,23 +1,9 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { Search, MousePointer, Clock, Navigation, Eye, Scroll, Type, Download, Upload, ChevronDown, ChevronRight, CheckCircle2, XCircle, Loader2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Card } from '@/components/ui'
-import { cn, formatDuration } from '@/lib/utils'
-import {
-  CheckCircle2,
-  XCircle,
-  Clock,
-  MousePointer,
-  Type,
-  Navigation,
-  Scroll,
-  Eye,
-  Camera,
-  ChevronDown,
-  ChevronRight,
-  Search,
-  Loader2,
-} from 'lucide-react'
 import type { BrowserAction, ActionType, SessionStatus } from '@autobrowse/shared'
 
 interface ActionLogProps {
@@ -67,14 +53,19 @@ export function ActionLog({ actions, sessionStatus, onSelectAction }: ActionLogP
 
   const filteredActions = actions.filter((action) => {
     if (!filter) return true
-    const searchLower = filter.toLowerCase()
+    const searchStr = filter.toLowerCase()
     return (
-      action.action_type.toLowerCase().includes(searchLower) ||
-      action.target_selector?.toLowerCase().includes(searchLower) ||
-      action.target_description?.toLowerCase().includes(searchLower) ||
-      action.input_value?.toLowerCase().includes(searchLower)
+      action.action_type.toLowerCase().includes(searchStr) ||
+      action.target_description?.toLowerCase().includes(searchStr) ||
+      action.target_selector?.toLowerCase().includes(searchStr)
     )
   })
+
+  const formatDuration = (ms: number): string => {
+    if (ms < 1000) return `${ms}ms`
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
+    return `${(ms / 60000).toFixed(1)}m`
+  }
 
   return (
     <Card className="h-full flex flex-col overflow-hidden">
@@ -106,7 +97,7 @@ export function ActionLog({ actions, sessionStatus, onSelectAction }: ActionLogP
             <Clock className="h-12 w-12 mb-4 opacity-50" />
             <p className="text-sm font-medium">No actions recorded</p>
             <p className="text-xs mt-1 text-center">
-              {sessionStatus === 'pending' && 'Start the session to begin recording'}
+              {sessionStatus === 'pending' && 'Start session to begin recording'}
               {sessionStatus === 'active' && 'Waiting for first action...'}
               {filter && 'No actions match your filter'}
             </p>
@@ -119,12 +110,12 @@ export function ActionLog({ actions, sessionStatus, onSelectAction }: ActionLogP
 
               return (
                 <div
-                  key={action.id}
-                  className={cn(
-                    'p-3 hover:bg-surface-elevated transition-colors cursor-pointer',
-                    action.screenshot_url && 'border-l-2 border-accent'
-                  )}
-                  onClick={() => onSelectAction(action)}
+                    key={action.id}
+                    className={cn(
+                      'p-3 hover:bg-surface-elevated transition-colors cursor-pointer',
+                      action.screenshot_url && 'border-l-2 border-accent'
+                    )}
+                    onClick={() => onSelectAction(action)}
                 >
                   <div className="flex items-start gap-3">
                     <div
