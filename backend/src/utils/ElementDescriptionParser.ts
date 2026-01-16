@@ -23,7 +23,7 @@ export class ElementDescriptionParser {
     let url: string | undefined = undefined
     let value: string | undefined = undefined
     let targetDescription: string | undefined = undefined
-    let selector: string | undefined = undefined
+    let selector: string | null | undefined = undefined
     let confidence = 0.7
 
     if (descLower.includes('go to') || descLower.includes('navigate to') || descLower.includes('open') || descLower.includes('visit')) {
@@ -42,7 +42,7 @@ export class ElementDescriptionParser {
       confidence = 0.8
 
       if (domTree && targetDescription) {
-        const selector = this.findSelectorByDescription(targetDescription, domTree)
+        selector = this.findSelectorByDescription(targetDescription, domTree)
         if (selector) {
           return {
             actionType,
@@ -65,7 +65,7 @@ export class ElementDescriptionParser {
       confidence = 0.8
 
       if (domTree && targetDescription) {
-        const selector = this.findSelectorByDescription(targetDescription, domTree)
+        selector = this.findSelectorByDescription(targetDescription, domTree)
         if (selector) {
           return {
             actionType,
@@ -95,7 +95,7 @@ export class ElementDescriptionParser {
       confidence = 0.75
 
       if (domTree) {
-        const selector = this.findSelectorByDescription(targetDescription, domTree)
+        selector = this.findSelectorByDescription(targetDescription, domTree)
         if (selector) {
           return {
             actionType,
@@ -128,7 +128,7 @@ export class ElementDescriptionParser {
       confidence = 0.8
 
       if (domTree && targetDescription) {
-        const selector = this.findSelectorByDescription(targetDescription, domTree)
+        selector = this.findSelectorByDescription(targetDescription, domTree)
         if (selector) {
           return {
             actionType,
@@ -147,7 +147,7 @@ export class ElementDescriptionParser {
       confidence = 0.8
 
       if (domTree && targetDescription) {
-        const selector = this.findSelectorByDescription(targetDescription, domTree)
+        selector = this.findSelectorByDescription(targetDescription, domTree)
         if (selector) {
           return {
             actionType,
@@ -175,7 +175,7 @@ export class ElementDescriptionParser {
       confidence = 0.75
 
       if (domTree && targetDescription) {
-        const selector = this.findSelectorByDescription(targetDescription, domTree)
+        selector = this.findSelectorByDescription(targetDescription, domTree)
         if (selector) {
           return {
             actionType,
@@ -203,7 +203,7 @@ export class ElementDescriptionParser {
       confidence = 0.8
 
       if (domTree && targetDescription) {
-        const selector = this.findSelectorByDescription(targetDescription, domTree)
+        selector = this.findSelectorByDescription(targetDescription, domTree)
         if (selector) {
           return {
             actionType,
@@ -222,7 +222,7 @@ export class ElementDescriptionParser {
 
     const result: ParsedAction = {
       actionType: actionType!,
-      selector: selector,
+      ...(selector !== null && selector !== undefined && { selector }),
       value: value,
       targetDescription: targetDescription,
       url: url,
