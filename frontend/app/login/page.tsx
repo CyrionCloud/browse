@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Bot, CheckCircle } from 'lucide-react'
 import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { signIn, signInWithOAuth } = useAuth()
@@ -158,8 +158,16 @@ export default function LoginPage() {
               Sign up
             </Link>
           </p>
-        </CardContent>
-      </Card>
-    </div>
+      </CardContent>
+    </Card>
+  </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   )
 }

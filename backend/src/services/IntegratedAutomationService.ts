@@ -353,11 +353,36 @@ export class IntegratedAutomationService extends EventEmitter {
             url: urlMatch[0]
           }, { sessionId })
           logger.info('Navigation successful', { sessionId })
+
+          // Always capture screenshot after navigation
+          try {
+            const navScreenshot = await bridge.call<{ success: boolean; screenshot: string }>(
+              'browser_use', 'screenshot', {}, { sessionId }
+            )
+            if (navScreenshot.success && navScreenshot.screenshot) {
+              logger.info('Initial screenshot captured', { sessionId, length: navScreenshot.screenshot.length })
+              onScreenshot?.(navScreenshot.screenshot)
+            }
+          } catch (e) {
+            logger.warn('Failed to capture initial screenshot', { sessionId })
+          }
         } catch (navError: any) {
           logger.error('Navigation failed', { sessionId, error: navError.message })
         }
       } else {
         logger.info('No URL found in task, skipping navigation', { sessionId })
+        // Capture initial screenshot of browser even without navigation
+        try {
+          const initialScreenshot = await bridge.call<{ success: boolean; screenshot: string }>(
+            'browser_use', 'screenshot', {}, { sessionId }
+          )
+          if (initialScreenshot.success && initialScreenshot.screenshot) {
+            logger.info('Initial browser screenshot captured', { sessionId })
+            onScreenshot?.(initialScreenshot.screenshot)
+          }
+        } catch (e) {
+          logger.warn('Failed to capture initial browser screenshot', { sessionId })
+        }
       }
 
       // Get DOM context

@@ -105,16 +105,27 @@ class BrowserManager:
         return self.loop.run_until_complete(coro)
 
     async def _create_browser_session(self, session_id: str, config: Dict[str, Any]) -> Any:
-        """Create a new browser session"""
-        # Create browser session with direct parameters
+        """Create a new browser session with anti-detection and HTTP/2 fix"""
+        # Browser args to prevent bot detection and fix HTTP/2 protocol errors
+        browser_args = [
+            '--disable-blink-features=AutomationControlled',  # Prevent bot detection
+            '--disable-http2',  # Fix ERR_HTTP2_PROTOCOL_ERROR
+            '--no-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--disable-web-security',
+            '--disable-features=IsolateOrigins,site-per-process',
+            '--allow-running-insecure-content',
+            '--ignore-certificate-errors',
+        ]
+
+        # Create browser session with anti-detection args
         browser = BrowserSession(
             headless=config.get('headless', True),  # Default to headless for testing
             id=session_id,
-            keep_alive=True
+            keep_alive=True,
+            args=browser_args,
         )
-
-        # Additional configuration can be set via properties if needed
-        # Note: BrowserSession handles most config internally
 
         await browser.start()
 
@@ -130,11 +141,13 @@ class BrowserManager:
         return self.browsers[session_id]
 
     async def navigate(self, session_id: str, url: str, config: Dict[str, Any] = None) -> Dict[str, Any]:
-        """Navigate to URL"""
+        """Navigate to URL with improved error handling"""
         try:
             browser = await self._get_browser(session_id, config)
             page = await browser.get_current_page()
-            await page.goto(url)
+
+            # Navigate with timeout and wait for DOM content
+            await page.goto(url, wait_until='domcontentloaded', timeout=30000)
 
             return {
                 'success': True,
@@ -143,8 +156,14 @@ class BrowserManager:
                 'timestamp': datetime.now().isoformat()
             }
         except Exception as e:
-            logger.error(f'Navigate error: {e}')
-            return {'success': False, 'error': str(e)}
+            error_msg = str(e)
+            logger.error(f'Navigate error: {error_msg}')
+
+            # If HTTP/2 error, suggest disabling HTTP/2 in browser settings
+            if 'HTTP2_PROTOCOL_ERROR' in error_msg or 'net::ERR_' in error_msg:
+                logger.warning('Network error detected - browser may need restart with --disable-http2')
+
+            return {'success': False, 'error': error_msg}
 
     async def click(self, session_id: str, selector: str, description: str = '', config: Dict[str, Any] = None) -> Dict[str, Any]:
         """Click on element"""
