@@ -10,40 +10,87 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        'background': '#1a1a1a',
-        'surface': '#242424',
-        'surface-elevated': '#2d2d2d',
-        'surface-hover': '#363636',
-        'border': '#3d3d3d',
-        'border-soft': '#4a4a4a',
+        // Main backgrounds - very dark like reference
+        background: '#0a0e14',
+        surface: '#0d1117',
+        'surface-elevated': '#161b22',
+        'surface-hover': '#1c2128',
+        border: '#21262d',
+        'border-soft': '#30363d',
 
-        'accent': {
-          DEFAULT: '#6366f1',
-          muted: '#818cf8',
-          hover: '#4f46e5',
+        // Accent - cyan/teal as in reference
+        accent: {
+          DEFAULT: '#00bcd4',
+          muted: '#00838f',
+          hover: '#00e5ff',
           foreground: '#ffffff',
+          light: 'rgba(0, 188, 212, 0.15)',
         },
 
-        'error': {
-          DEFAULT: '#dc2626',
-          muted: '#ef4444',
-          hover: '#b91c1c',
+        // Text colors
+        text: {
+          primary: '#e6edf3',
+          secondary: '#8b949e',
+          muted: '#484f58',
+        },
+
+        // Success - teal/green
+        success: {
+          DEFAULT: '#00bfa5',
+          muted: '#009688',
+          light: 'rgba(0, 191, 165, 0.15)',
+        },
+
+        // Warning - amber/orange
+        warning: {
+          DEFAULT: '#f0ad4e',
+          muted: '#e09600',
+          light: 'rgba(240, 173, 78, 0.15)',
+        },
+
+        // Error - red
+        error: {
+          DEFAULT: '#f85149',
+          muted: '#da3633',
+          hover: '#ff6b6b',
           foreground: '#ffffff',
+          light: 'rgba(248, 81, 73, 0.15)',
         },
 
-        'muted': {
-          DEFAULT: '#a1a1aa',
-          foreground: '#71717a',
+        // Muted colors
+        muted: {
+          DEFAULT: '#484f58',
+          foreground: '#8b949e',
         },
 
-        'foreground': '#f4f4f5',
-        'card': '#242424',
-        'input': '#2d2d2d',
-        'ring': '#6366f1',
+        // General
+        foreground: '#e6edf3',
+        card: '#0d1117',
+        input: '#161b22',
+        ring: '#00bcd4',
+
+        // Badge and status colors
+        'active-badge': 'rgba(0, 188, 212, 0.15)',
+        'checkmark': '#00bfa5',
+
+        // Gradient
+        'gradient-start': '#00bcd4',
+        'gradient-end': '#7c3aed',
+
+        // Sidebar
+        sidebar: {
+          DEFAULT: '#0d1117',
+          hover: '#161b22',
+          active: '#00bcd4',
+          border: '#21262d',
+        },
       },
       fontFamily: {
         mono: ['ui-monospace', 'monospace'],
         sans: ['var(--font-plex-sans)', 'ui-sans-serif', 'system-ui'],
+      },
+      borderWidth: {
+        '3': '3px',
       },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-out',
@@ -85,3 +132,4 @@ const config: Config = {
 }
 
 export default config
+

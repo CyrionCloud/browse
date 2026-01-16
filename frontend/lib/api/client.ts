@@ -1,272 +1,277 @@
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
 import type { BrowserSession, ChatMessage, Skill, AgentConfig, APIResponse } from '@autobrowse/shared'
-import { mockSessions, mockMessages, mockSkills, mockActions, createMockSession, createMockMessage } from '../mockData'
+import { supabase } from '../supabase/client'
 
 const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
-
-// Check if we should use mock data (backend not available or demo mode)
-const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK === 'true'
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000,
+  timeout: 30000,
 })
 
-api.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('auth_token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+// Add auth token from Supabase session to all requests
+api.interceptors.request.use(async (config) => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.access_token) {
+      config.headers.Authorization = `Bearer ${session.access_token}`
     }
+  } catch (error) {
+    console.error('Error getting auth session:', error)
   }
   return config
 })
 
 api.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('auth_token')
-        window.location.href = '/login'
+  async (error: AxiosError) => {
+    const originalRequest = error.config as any
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
+
+      try {
+        // Try to refresh the session
+        const { data: { session }, error: refreshError } = await supabase.auth.refreshSession()
+
+        if (session && !refreshError) {
+          // Update the token and retry the request
+          originalRequest.headers.Authorization = `Bearer ${session.access_token}`
+          return api(originalRequest)
+        }
+      } catch (refreshErr) {
+        console.error('Token refresh failed:', refreshErr)
+      }
+
+      // If refresh failed, check if we should redirect to login
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+          window.location.href = '/login'
+        }
       }
     }
     return Promise.reject(error)
   }
 )
 
-// Helper to check if backend is available
-async function isBackendAvailable(): Promise<boolean> {
-  if (USE_MOCK_DATA) return false
-  try {
-    await api.get('/health', { timeout: 3000 })
-    return true
-  } catch {
-    return false
+// Helper to get current user ID
+async function getCurrentUserId(): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.user?.id) {
+    throw new Error('User not authenticated')
   }
+  return session.user.id
 }
 
-// In-memory store for mock data during session
-let mockSessionStore = [...mockSessions]
-let mockMessageStore = [...mockMessages]
+// Helper to extract error message
+function getErrorMessage(error: unknown): string {
+  if (error instanceof AxiosError) {
+    return error.response?.data?.error || error.response?.data?.message || error.message
+  }
+  if (error instanceof Error) {
+    return error.message
+  }
+  return 'An unknown error occurred'
+}
 
 export const sessionsApi = {
   getAll: async (): Promise<BrowserSession[]> => {
-    try {
-      const { data } = await api.get<APIResponse<BrowserSession[]>>('/api/sessions')
-      return data.data || []
-    } catch {
-      console.log('Using mock session data')
-      return mockSessionStore
-    }
+    const userId = await getCurrentUserId()
+    const { data } = await api.get<APIResponse<BrowserSession[]>>(`/api/users/${userId}/sessions`)
+    return data.data || []
   },
 
   getById: async (id: string): Promise<BrowserSession> => {
-    try {
-      const { data } = await api.get<APIResponse<BrowserSession>>(`/api/sessions/${id}`)
-      if (!data.data) throw new Error(data.error || 'Session not found')
-      return data.data
-    } catch {
-      const session = mockSessionStore.find(s => s.id === id)
-      if (!session) throw new Error('Session not found')
-      return session
-    }
+    const { data } = await api.get<APIResponse<BrowserSession>>(`/api/sessions/${id}`)
+    if (!data.data) throw new Error(data.error || 'Session not found')
+    return data.data
   },
 
   create: async (taskDescription: string, agentConfig?: AgentConfig): Promise<BrowserSession> => {
-    try {
-      const { data } = await api.post<APIResponse<BrowserSession>>('/api/sessions', {
-        task_description: taskDescription,
-        agent_config: agentConfig,
-      })
-      if (!data.data) throw new Error(data.error || 'Failed to create session')
-      return data.data
-    } catch {
-      console.log('Creating mock session')
-      const newSession = createMockSession(taskDescription, agentConfig)
-      mockSessionStore = [newSession, ...mockSessionStore]
-      return newSession
-    }
+    const { data } = await api.post<APIResponse<BrowserSession>>('/api/sessions', {
+      task_description: taskDescription,
+      agent_config: agentConfig,
+    })
+    if (!data.data) throw new Error(data.error || 'Failed to create session')
+    return data.data
   },
 
   start: async (id: string): Promise<void> => {
-    try {
-      const { data } = await api.post<APIResponse>(`/api/sessions/${id}/start`)
-      if (data.error) throw new Error(data.error)
-    } catch {
-      console.log('Starting mock session:', id)
-      const sessionIndex = mockSessionStore.findIndex(s => s.id === id)
-      if (sessionIndex >= 0) {
-        mockSessionStore[sessionIndex] = {
-          ...mockSessionStore[sessionIndex],
-          status: 'active',
-          started_at: new Date().toISOString(),
-        }
-
-        // Simulate session completion after 3 seconds
-        setTimeout(() => {
-          const idx = mockSessionStore.findIndex(s => s.id === id)
-          if (idx >= 0) {
-            mockSessionStore[idx] = {
-              ...mockSessionStore[idx],
-              status: 'completed',
-              completed_at: new Date().toISOString(),
-              actions_count: Math.floor(Math.random() * 20) + 5,
-              duration_seconds: Math.floor(Math.random() * 120) + 30,
-            }
-          }
-        }, 3000)
-      }
-    }
+    const { data } = await api.post<{ message: string; sessionId: string }>(`/api/sessions/${id}/start`)
+    if (!data.message) throw new Error('Failed to start session')
   },
 
   pause: async (id: string): Promise<void> => {
-    try {
-      const { data } = await api.post<APIResponse>(`/api/sessions/${id}/pause`)
-      if (data.error) throw new Error(data.error)
-    } catch {
-      const sessionIndex = mockSessionStore.findIndex(s => s.id === id)
-      if (sessionIndex >= 0) {
-        mockSessionStore[sessionIndex] = {
-          ...mockSessionStore[sessionIndex],
-          status: 'paused',
-        }
-      }
-    }
+    const { data } = await api.post<{ message: string; sessionId: string }>(`/api/sessions/${id}/pause`)
+    if (!data.message) throw new Error('Failed to pause session')
+  },
+
+  resume: async (id: string): Promise<void> => {
+    const { data } = await api.post<{ message: string; sessionId: string }>(`/api/sessions/${id}/resume`)
+    if (!data.message) throw new Error('Failed to resume session')
   },
 
   cancel: async (id: string): Promise<void> => {
-    try {
-      const { data } = await api.post<APIResponse>(`/api/sessions/${id}/cancel`)
-      if (data.error) throw new Error(data.error)
-    } catch {
-      const sessionIndex = mockSessionStore.findIndex(s => s.id === id)
-      if (sessionIndex >= 0) {
-        mockSessionStore[sessionIndex] = {
-          ...mockSessionStore[sessionIndex],
-          status: 'cancelled',
-        }
-      }
-    }
+    const { data } = await api.post<{ message: string; sessionId: string }>(`/api/sessions/${id}/cancel`)
+    if (!data.message) throw new Error('Failed to cancel session')
   },
 
   delete: async (id: string): Promise<void> => {
-    try {
-      const { data } = await api.delete<APIResponse>(`/api/sessions/${id}`)
-      if (data.error) throw new Error(data.error)
-    } catch {
-      mockSessionStore = mockSessionStore.filter(s => s.id !== id)
-    }
+    const { data } = await api.delete<APIResponse>(`/api/sessions/${id}`)
+    if (data.error) throw new Error(data.error)
   },
 
   getActions: async (sessionId: string): Promise<any[]> => {
-    try {
-      const { data } = await api.get<APIResponse<any[]>>(`/api/sessions/${sessionId}/actions`)
-      return data.data || []
-    } catch {
-      return mockActions.filter(a => a.session_id === sessionId)
-    }
+    const { data } = await api.get<APIResponse<any[]>>(`/api/sessions/${sessionId}/actions`)
+    return data.data || []
+  },
+
+  getMessages: async (sessionId: string): Promise<ChatMessage[]> => {
+    const { data } = await api.get<APIResponse<ChatMessage[]>>(`/api/sessions/${sessionId}/messages`)
+    return data.data || []
   },
 }
 
 export const chatApi = {
   sendMessage: async (sessionId: string, content: string): Promise<{ userMessage: ChatMessage; assistantMessage: ChatMessage }> => {
-    try {
-      const { data } = await api.post<APIResponse<{ userMessage: ChatMessage; assistantMessage: ChatMessage }>>('/api/chat', {
-        session_id: sessionId,
-        content,
-      })
-      if (!data.data) throw new Error(data.error || 'Failed to send message')
-      return data.data
-    } catch {
-      console.log('Creating mock chat response')
-      const userMsg = createMockMessage(sessionId, 'user', content)
-      mockMessageStore.push(userMsg)
-
-      // Generate a mock AI response
-      const responses = [
-        `I understand you want me to "${content}". Let me analyze this task and plan the necessary browser actions.`,
-        `Processing your request: "${content}". I'll navigate to the relevant websites and gather the information you need.`,
-        `Got it! I'll work on "${content}". Starting the automation now...`,
-      ]
-      const assistantContent = responses[Math.floor(Math.random() * responses.length)]
-      const assistantMsg = createMockMessage(sessionId, 'assistant', assistantContent)
-      mockMessageStore.push(assistantMsg)
-
-      return { userMessage: userMsg, assistantMessage: assistantMsg }
-    }
+    const { data } = await api.post<APIResponse<{ userMessage: ChatMessage; assistantMessage: ChatMessage }>>('/api/chat', {
+      session_id: sessionId,
+      content,
+    })
+    if (!data.data) throw new Error(data.error || 'Failed to send message')
+    return data.data
   },
 
   getMessages: async (sessionId: string): Promise<ChatMessage[]> => {
-    try {
-      const { data } = await api.get<APIResponse<ChatMessage[]>>(`/api/sessions/${sessionId}/messages`)
-      return data.data || []
-    } catch {
-      return mockMessageStore.filter(m => m.session_id === sessionId)
-    }
+    const { data } = await api.get<APIResponse<ChatMessage[]>>(`/api/sessions/${sessionId}/messages`)
+    return data.data || []
   },
 }
 
 export const skillsApi = {
   getAll: async (): Promise<Skill[]> => {
-    try {
-      const { data } = await api.get<APIResponse<Skill[]>>('/api/skills')
-      return data.data || []
-    } catch {
-      return mockSkills
-    }
+    const { data } = await api.get<APIResponse<Skill[]>>('/api/skills')
+    return data.data || []
   },
 
-  getUserSkills: async (): Promise<Skill[]> => {
-    try {
-      const { data } = await api.get<APIResponse<Skill[]>>('/api/users/me/skills')
-      return data.data || []
-    } catch {
-      return mockSkills.filter(s => !s.requires_pro)
-    }
+  getUserSkills: async (): Promise<any[]> => {
+    const userId = await getCurrentUserId()
+    const { data } = await api.get<APIResponse<any[]>>(`/api/users/${userId}/skills`)
+    return data.data || []
   },
 
   toggleSkill: async (skillId: string, enabled: boolean): Promise<void> => {
-    try {
-      const { data } = await api.put<APIResponse>(`/api/skills/${skillId}/toggle`, { enabled })
-      if (data.error) throw new Error(data.error)
-    } catch {
-      console.log('Mock toggle skill:', skillId, enabled)
-    }
+    const { data } = await api.put<APIResponse>(`/api/skills/${skillId}/toggle`, { enabled })
+    if (data.error) throw new Error(data.error)
   },
 
   updateSkillConfig: async (skillId: string, config: Record<string, any>): Promise<void> => {
+    const { data } = await api.put<APIResponse>(`/api/skills/${skillId}/config`, { custom_config: config })
+    if (data.error) throw new Error(data.error)
+  },
+}
+
+// Health check to verify backend connectivity
+export const healthApi = {
+  check: async (): Promise<boolean> => {
     try {
-      const { data } = await api.put<APIResponse>(`/api/skills/${skillId}/config`, config)
-      if (data.error) throw new Error(data.error)
+      await api.get('/health', { timeout: 5000 })
+      return true
     } catch {
-      console.log('Mock update skill config:', skillId, config)
+      return false
     }
   },
 }
 
-export const authApi = {
-  setToken: (token: string) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('auth_token', token)
+// Available AI models
+export const AVAILABLE_MODELS = {
+  'deepseek-chat': { name: 'DeepSeek Chat', provider: 'deepseek' },
+  'deepseek-reasoner': { name: 'DeepSeek Reasoner', provider: 'deepseek' },
+  'claude-sonnet': { name: 'Claude Sonnet 4.5', provider: 'anthropic' },
+  'gpt-4': { name: 'GPT-4', provider: 'openai' },
+  'gemini-pro': { name: 'Gemini Pro', provider: 'google' },
+} as const
+
+export type ModelId = keyof typeof AVAILABLE_MODELS
+
+export interface UserSettings {
+  model: ModelId
+  maxSteps: number
+  vision: boolean
+  thinking: boolean
+  highlightElements: boolean
+  notifications: boolean
+  emailAlerts: boolean
+  proxyEnabled: boolean
+  proxyLocation: string
+}
+
+const DEFAULT_SETTINGS: UserSettings = {
+  model: 'deepseek-chat',
+  maxSteps: 50,
+  vision: true,
+  thinking: true,
+  highlightElements: true,
+  notifications: true,
+  emailAlerts: false,
+  proxyEnabled: false,
+  proxyLocation: 'auto',
+}
+
+// Settings API - persists to Supabase profiles table
+export const settingsApi = {
+  get: async (): Promise<UserSettings> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return DEFAULT_SETTINGS
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('preferences')
+        .eq('id', user.id)
+        .single()
+
+      if (error || !data?.preferences) {
+        return DEFAULT_SETTINGS
+      }
+
+      return { ...DEFAULT_SETTINGS, ...data.preferences }
+    } catch (error) {
+      console.error('Failed to load settings:', error)
+      return DEFAULT_SETTINGS
     }
   },
 
-  clearToken: () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('auth_token')
+  save: async (settings: Partial<UserSettings>): Promise<void> => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('User not authenticated')
+
+    // Get current preferences
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('preferences')
+      .eq('id', user.id)
+      .single()
+
+    const currentPrefs = profile?.preferences || {}
+    const updatedPrefs = { ...currentPrefs, ...settings }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ preferences: updatedPrefs, updated_at: new Date().toISOString() })
+      .eq('id', user.id)
+
+    if (error) {
+      console.error('Failed to save settings:', error)
+      throw new Error(error.message)
     }
   },
 
-  getToken: (): string | null => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('auth_token')
-    }
-    return null
-  },
+  getDefaultModel: () => 'deepseek-chat' as ModelId,
 }
 
 export default api

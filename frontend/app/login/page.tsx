@@ -1,19 +1,36 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { Bot } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Bot, CheckCircle } from 'lucide-react'
 import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { signIn, signInWithOAuth } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  // Check for messages in URL params
+  useEffect(() => {
+    const confirmed = searchParams.get('confirmed')
+    const passwordReset = searchParams.get('password_reset')
+    const authError = searchParams.get('error')
+
+    if (confirmed === 'true') {
+      setSuccessMessage('Email confirmed! You can now sign in.')
+    } else if (passwordReset === 'true') {
+      setSuccessMessage('Password reset successful! You can now sign in with your new password.')
+    } else if (authError) {
+      setError('Authentication failed. Please try again.')
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -23,7 +40,9 @@ export default function LoginPage() {
     try {
       const result = await signIn(email, password)
       if (result.success) {
-        router.push('/dashboard')
+        // Use hard navigation to ensure cookies are properly read by middleware
+        const redirectTo = searchParams.get('redirectTo') || '/dashboard'
+        window.location.href = redirectTo
       } else {
         setError(result.error || 'Failed to sign in')
       }
@@ -62,6 +81,13 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {successMessage && (
+              <div className="p-3 rounded-lg bg-accent/15 border border-accent/25 text-accent text-sm flex items-center gap-2">
+                <CheckCircle className="h-4 w-4" />
+                {successMessage}
+              </div>
+            )}
+
             {error && (
               <div className="p-3 rounded-lg bg-error/15 border border-error/25 text-error-muted text-sm">
                 {error}
@@ -80,7 +106,12 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm text-muted-foreground">Password</label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-muted-foreground">Password</label>
+                <Link href="/forgot-password" className="text-sm text-accent hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
               <Input
                 type="password"
                 value={password}

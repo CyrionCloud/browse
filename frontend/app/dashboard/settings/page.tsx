@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Switch, Badge } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
 import { useAppStore } from '@/store/useAppStore'
+import { settingsApi, AVAILABLE_MODELS, type UserSettings, type ModelId } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import {
   User,
@@ -21,6 +22,8 @@ import {
   EyeOff,
   Settings,
   Zap,
+  Save,
+  Loader2,
 } from 'lucide-react'
 
 interface SettingsSectionProps {
@@ -54,19 +57,59 @@ export default function SettingsPage() {
   const { wsConnected } = useAppStore()
   const [showApiKey, setShowApiKey] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [hasChanges, setHasChanges] = useState(false)
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  const [settings, setSettings] = useState({
-    model: 'claude-sonnet-4.5',
+  const [settings, setSettings] = useState<UserSettings>({
+    model: 'deepseek-chat',
     maxSteps: 50,
     vision: true,
     thinking: true,
     highlightElements: true,
     notifications: true,
     emailAlerts: false,
-    darkMode: true,
     proxyEnabled: false,
-    proxyLocation: 'us',
+    proxyLocation: 'auto',
   })
+
+  const [originalSettings, setOriginalSettings] = useState<UserSettings | null>(null)
+
+  // Load settings on mount
+  useEffect(() => {
+    loadSettings()
+  }, [])
+
+  const loadSettings = async () => {
+    try {
+      setIsLoading(true)
+      const loadedSettings = await settingsApi.get()
+      setSettings(loadedSettings)
+      setOriginalSettings(loadedSettings)
+    } catch (error) {
+      console.error('Failed to load settings:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSave = async () => {
+    try {
+      setIsSaving(true)
+      setSaveMessage(null)
+      await settingsApi.save(settings)
+      setOriginalSettings(settings)
+      setHasChanges(false)
+      setSaveMessage({ type: 'success', text: 'Settings saved successfully!' })
+      setTimeout(() => setSaveMessage(null), 3000)
+    } catch (error) {
+      console.error('Failed to save settings:', error)
+      setSaveMessage({ type: 'error', text: 'Failed to save settings. Please try again.' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   const mockApiKey = 'ab_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 
@@ -80,17 +123,50 @@ export default function SettingsPage() {
     }
   }
 
-  const updateSetting = <K extends keyof typeof settings>(key: K, value: typeof settings[K]) => {
+  const updateSetting = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }))
+    setHasChanges(true)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage your account and automation preferences
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Manage your account and automation preferences
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {saveMessage && (
+              <span className={cn(
+                'text-sm',
+                saveMessage.type === 'success' ? 'text-emerald-400' : 'text-red-400'
+              )}>
+                {saveMessage.text}
+              </span>
+            )}
+            <Button
+              variant="accent"
+              onClick={handleSave}
+              disabled={!hasChanges || isSaving}
+            >
+              {isSaving ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              Save Changes
+            </Button>
+          </div>
         </div>
 
         <SettingsSection
@@ -194,17 +270,27 @@ export default function SettingsPage() {
               <div>
                 <p className="text-sm font-medium text-foreground">AI Model</p>
                 <p className="text-sm text-muted-foreground">
-                  Choose the AI model for automation
+                  Choose the AI model for automation (DeepSeek recommended)
                 </p>
               </div>
               <select
                 value={settings.model}
-                onChange={(e) => updateSetting('model', e.target.value)}
+                onChange={(e) => updateSetting('model', e.target.value as ModelId)}
                 className="h-9 rounded-lg border border-border bg-surface px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
-                <option value="claude-opus-4.5">Claude Opus 4.5</option>
-                <option value="gpt-4o">GPT-4o</option>
+                <optgroup label="DeepSeek (Recommended)">
+                  <option value="deepseek-chat">DeepSeek Chat</option>
+                  <option value="deepseek-reasoner">DeepSeek Reasoner</option>
+                </optgroup>
+                <optgroup label="Anthropic Claude">
+                  <option value="claude-sonnet">Claude Sonnet 4.5</option>
+                </optgroup>
+                <optgroup label="OpenAI">
+                  <option value="gpt-4">GPT-4</option>
+                </optgroup>
+                <optgroup label="Google">
+                  <option value="gemini-pro">Gemini Pro</option>
+                </optgroup>
               </select>
             </div>
 

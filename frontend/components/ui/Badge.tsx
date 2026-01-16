@@ -8,12 +8,12 @@ interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
 const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
   ({ className, variant = 'default', ...props }, ref) => {
     const variants = {
-      default: 'bg-surface-elevated text-foreground border border-border',
-      accent: 'bg-accent/15 text-accent-muted border border-accent/25',
-      success: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25',
-      warning: 'bg-amber-500/15 text-amber-400 border border-amber-500/25',
-      error: 'bg-error/15 text-error-muted border border-error/25',
-      outline: 'bg-transparent text-foreground border border-border',
+      default: 'bg-surface-elevated text-foreground border border',
+      accent: 'bg-accent/15 text-accent border-accent/25',
+      success: 'bg-success/15 text-success border-success/25',
+      warning: 'bg-warning/15 text-warning border-warning/25',
+      error: 'bg-error/15 text-error-muted border-error/25',
+      outline: 'bg-transparent text-foreground border border',
     }
 
     return (

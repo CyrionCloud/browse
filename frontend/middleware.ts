@@ -1,72 +1,34 @@
-import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  })
+  const pathname = request.nextUrl.pathname
+  const isDashboardRoute = pathname.startsWith('/dashboard')
+  const isAuthRoute = pathname === '/login' ||
+                      pathname === '/signup' ||
+                      pathname === '/forgot-password'
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
-        },
-        set(name: string, value: string, options: any) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          supabaseResponse.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-        },
-        remove(name: string, options: any) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          supabaseResponse.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-        },
-      },
-    }
+  // Check for Supabase auth cookies directly - no network call needed
+  // Supabase stores auth in cookies with names like 'sb-<project-ref>-auth-token'
+  const cookies = request.cookies.getAll()
+  const hasAuthCookie = cookies.some(cookie =>
+    cookie.name.includes('-auth-token') ||
+    cookie.name.includes('supabase-auth')
   )
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  const isDashboardRoute = request.nextUrl.pathname.startsWith('/dashboard')
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login') || 
-                      request.nextUrl.pathname.startsWith('/signup')
-
-  if (isDashboardRoute && !user) {
+  // Protected routes - redirect to login if no auth cookie
+  if (isDashboardRoute && !hasAuthCookie) {
     const redirectUrl = new URL('/login', request.url)
-    redirectUrl.searchParams.set('redirectTo', request.nextUrl.pathname)
+    redirectUrl.searchParams.set('redirectTo', pathname)
     return NextResponse.redirect(redirectUrl)
   }
 
-  if (isAuthRoute && user) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+  // Auth routes - redirect to dashboard if auth cookie exists
+  if (isAuthRoute && hasAuthCookie) {
+    const redirectTo = request.nextUrl.searchParams.get('redirectTo') || '/dashboard'
+    return NextResponse.redirect(new URL(redirectTo, request.url))
   }
 
-  return supabaseResponse
+  return NextResponse.next()
 }
 
 export const config = {
@@ -74,5 +36,7 @@ export const config = {
     '/dashboard/:path*',
     '/login',
     '/signup',
+    '/forgot-password',
+    '/reset-password',
   ],
 }

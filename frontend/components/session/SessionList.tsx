@@ -49,17 +49,17 @@ function SessionCard({ session, onStart, onPause, onCancel, onDelete, onSelect }
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <StatusIcon
-                className={cn(
-                  'h-4 w-4',
-                  status.color === 'accent' && 'text-accent',
-                  status.color === 'success' && 'text-emerald-400',
-                  status.color === 'warning' && 'text-amber-400',
-                  status.color === 'error' && 'text-error-muted',
-                  status.color === 'default' && 'text-muted-foreground'
-                )}
-              />
-              <Badge variant={status.color as any}>{status.label}</Badge>
+               <StatusIcon
+                 className={cn(
+                   'h-4 w-4',
+                   status.color === 'accent' && 'text-accent',
+                   status.color === 'success' && 'text-success',
+                   status.color === 'warning' && 'text-warning',
+                   status.color === 'error' && 'text-error-muted',
+                   status.color === 'default' && 'text-muted-foreground'
+                 )}
+               />
+               <Badge variant={status.color as any}>{status.label}</Badge>
             </div>
             <h3 className="font-medium text-foreground truncate">
               {session.task_description}
@@ -72,13 +72,13 @@ function SessionCard({ session, onStart, onPause, onCancel, onDelete, onSelect }
           <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
             {session.status === 'pending' && (
               <Button variant="ghost" size="icon" onClick={() => onStart(session.id)}>
-                <Play className="h-4 w-4 text-emerald-400" />
+                <Play className="h-4 w-4 text-success" />
               </Button>
             )}
             {session.status === 'active' && (
               <>
                 <Button variant="ghost" size="icon" onClick={() => onPause(session.id)}>
-                  <Pause className="h-4 w-4 text-amber-400" />
+                  <Pause className="h-4 w-4 text-warning" />
                 </Button>
                 <Button variant="ghost" size="icon" onClick={() => onCancel(session.id)}>
                   <Square className="h-4 w-4 text-error-muted" />
@@ -87,7 +87,7 @@ function SessionCard({ session, onStart, onPause, onCancel, onDelete, onSelect }
             )}
             {session.status === 'paused' && (
               <Button variant="ghost" size="icon" onClick={() => onStart(session.id)}>
-                <Play className="h-4 w-4 text-emerald-400" />
+                <Play className="h-4 w-4 text-success" />
               </Button>
             )}
             <Button variant="ghost" size="icon" onClick={() => onDelete(session.id)}>
@@ -103,7 +103,7 @@ function SessionCard({ session, onStart, onPause, onCancel, onDelete, onSelect }
           </span>
           <span>{session.actions_count} actions</span>
           {session.result && (
-            <span className="flex items-center gap-1 text-emerald-400">
+            <span className="flex items-center gap-1 text-success">
               <CheckCircle2 className="h-3 w-3" />
               Completed
             </span>

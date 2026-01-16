@@ -1,1 +1,6 @@
 export { SessionList } from './SessionList'
+export { SessionViewer } from './SessionViewer'
+export { ScreenshotViewer } from './ScreenshotViewer'
+export { ActionLog } from './ActionLog'
+export { DOMTreeViewer } from './DOMTreeViewer'
+export { ProgressIndicator } from './ProgressIndicator'

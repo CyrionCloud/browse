@@ -10,7 +10,7 @@ import type { AgentConfig } from '@autobrowse/shared'
 import { useRouter } from 'next/navigation'
 
 const defaultAgentConfig: AgentConfig = {
-  model: 'claude-sonnet-4.5',
+  model: 'autobrowse-llm',
   maxSteps: 50,
   outputType: 'streaming',
   highlightElements: true,
@@ -31,7 +31,7 @@ interface ExecutionMode {
 }
 
 const executionModes: ExecutionMode[] = [
-  { id: 'browser-use', name: 'Browser Use LLM', description: 'Full browser automation' },
+  { id: 'autobrowse', name: 'Auto Browse LLM', description: 'Full browser automation' },
   { id: 'research', name: 'Research Agent', description: 'Deep web research' },
   { id: 'extraction', name: 'Extraction Agent', description: 'Data extraction focus' },
   { id: 'monitoring', name: 'Monitoring Agent', description: 'Continuous monitoring' },
@@ -67,7 +67,7 @@ export default function DashboardPage() {
       await sessionsApi.start(session.id)
 
       setTaskInput('')
-      router.push('/dashboard/history')
+      router.push(`/dashboard/session/${session.id}`)
     } catch (error: any) {
       console.error('Failed to create session:', error)
       alert(error.message || 'Failed to create session')

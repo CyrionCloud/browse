@@ -73,7 +73,7 @@ export function Sidebar({ children }: SidebarProps) {
         </button>
       </div>
 
-      <nav className={cn('flex-1 p-3 space-y-1', isCollapsed && 'px-2')}>
+      <nav className={cn('flex-1 py-3 space-y-0.5', isCollapsed && 'px-0')}>
         {navigation.map((item) => {
           const isActive = pathname === item.href
           return (
@@ -81,15 +81,15 @@ export function Sidebar({ children }: SidebarProps) {
               key={item.name}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
+                'flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-all border-l-3',
                 isActive
-                  ? 'bg-accent/15 text-accent'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated',
-                isCollapsed && 'justify-center'
+                  ? 'border-l-accent bg-surface-elevated text-accent'
+                  : 'border-l-transparent text-muted-foreground hover:text-foreground hover:bg-surface-hover',
+                isCollapsed && 'justify-center px-2'
               )}
               title={isCollapsed ? item.name : undefined}
             >
-              <item.icon className="h-5 w-5 shrink-0" />
+              <item.icon className={cn('h-5 w-5 shrink-0', isActive && 'text-accent')} />
               {!isCollapsed && <span>{item.name}</span>}
             </Link>
           )

@@ -2,15 +2,12 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Bot, Mail, CheckCircle } from 'lucide-react'
+import { Bot, Mail, ArrowLeft, CheckCircle } from 'lucide-react'
 import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui'
-import { useAuth } from '@/hooks/useAuth'
+import { supabase } from '@/lib/supabase/client'
 
-export default function SignupPage() {
-  const { signUp } = useAuth()
+export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
@@ -18,26 +15,17 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match')
-      return
-    }
-
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters')
-      return
-    }
-
     setIsLoading(true)
 
     try {
-      const result = await signUp(email, password)
-      if (result.success) {
-        // Show email confirmation message
-        setEmailSent(true)
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+
+      if (error) {
+        setError(error.message)
       } else {
-        setError(result.error || 'Failed to create account')
+        setEmailSent(true)
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred')
@@ -46,7 +34,7 @@ export default function SignupPage() {
     }
   }
 
-  // Show success message after sign up
+  // Show success message after email is sent
   if (emailSent) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -59,7 +47,7 @@ export default function SignupPage() {
             </div>
             <CardTitle className="text-2xl">Check Your Email</CardTitle>
             <CardDescription className="mt-2">
-              We have sent a confirmation link to <span className="font-semibold text-foreground">{email}</span>
+              We have sent a password reset link to <span className="font-semibold text-foreground">{email}</span>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -70,8 +58,9 @@ export default function SignupPage() {
                   <p className="font-medium text-foreground mb-1">Next steps:</p>
                   <ol className="list-decimal list-inside space-y-1">
                     <li>Check your email inbox</li>
-                    <li>Click the confirmation link</li>
-                    <li>Sign in to your account</li>
+                    <li>Click the password reset link</li>
+                    <li>Create a new password</li>
+                    <li>Sign in with your new password</li>
                   </ol>
                 </div>
               </div>
@@ -87,6 +76,7 @@ export default function SignupPage() {
             </p>
             <Link href="/login" className="block">
               <Button variant="outline" className="w-full">
+                <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Sign In
               </Button>
             </Link>
@@ -105,9 +95,9 @@ export default function SignupPage() {
               <Bot className="h-10 w-10 text-accent" />
             </Link>
           </div>
-          <CardTitle className="text-2xl">Create Account</CardTitle>
+          <CardTitle className="text-2xl">Forgot Password?</CardTitle>
           <CardDescription>
-            Start automating browser tasks with AI
+            Enter your email and we&apos;ll send you a reset link
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -129,35 +119,13 @@ export default function SignupPage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm text-muted-foreground">Password</label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm text-muted-foreground">Confirm Password</label>
-              <Input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm your password"
-                required
-              />
-            </div>
-
             <Button type="submit" className="w-full" isLoading={isLoading}>
-              Create Account
+              Send Reset Link
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Already have an account?{' '}
+            Remember your password?{' '}
             <Link href="/login" className="text-accent hover:underline">
               Sign in
             </Link>

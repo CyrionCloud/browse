@@ -42,8 +42,24 @@ export function AgentSettings({ config, onSave }: AgentSettingsProps) {
               onChange={(e) => handleChange({ model: e.target.value as AgentConfig['model'] })}
               className="w-full h-10 rounded-lg border border-border bg-input px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             >
-              <option value="browser-use-llm">Browser Use LLM</option>
-              <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
+              <optgroup label="Anthropic Claude">
+                <option value="claude-sonnet-4.5">Claude Sonnet 4.5</option>
+                <option value="claude-opus-4.5">Claude Opus 4.5</option>
+              </optgroup>
+              <optgroup label="DeepSeek">
+                <option value="deepseek-v3">DeepSeek V3</option>
+                <option value="deepseek-r1">DeepSeek R1</option>
+              </optgroup>
+              <optgroup label="Google Gemini">
+                <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+              </optgroup>
+              <optgroup label="OpenAI">
+                <option value="gpt-4o">GPT-4o</option>
+              </optgroup>
+              <optgroup label="Auto Browse">
+                <option value="autobrowse-llm">Auto Browse LLM</option>
+              </optgroup>
             </select>
           </div>
 

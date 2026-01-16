@@ -28,7 +28,7 @@ interface TaskInputPanelProps {
 }
 
 const executionModes: ExecutionMode[] = [
-  { id: 'browser-use', name: 'Browser Use LLM', description: 'Full browser automation' },
+  { id: 'autobrowse', name: 'Auto Browse LLM', description: 'Full browser automation' },
   { id: 'research', name: 'Research Agent', description: 'Deep web research' },
   { id: 'extraction', name: 'Extraction Agent', description: 'Data extraction focus' },
   { id: 'monitoring', name: 'Monitoring Agent', description: 'Continuous monitoring' },
@@ -38,7 +38,7 @@ const quickActions = [
   { id: 'extract', name: 'Extract', icon: Layers, mode: 'extraction' },
   { id: 'research', name: 'Research', icon: Search, mode: 'research' },
   { id: 'monitor', name: 'Monitor', icon: AlertTriangle, mode: 'monitoring' },
-  { id: 'personal', name: 'Personal Tasks', icon: User, mode: 'browser-use' },
+  { id: 'personal', name: 'Personal Tasks', icon: User, mode: 'autobrowse' },
 ]
 
 export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onModeChange }: TaskInputPanelProps) {

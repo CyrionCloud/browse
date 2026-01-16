@@ -115,12 +115,20 @@ export function useWebSocket(sessionId?: string) {
   }, [])
 
   useEffect(() => {
-    connect()
-    return () => disconnect()
+    // Delay connection to avoid race condition with page load
+    const connectTimeout = setTimeout(() => {
+      connect()
+    }, 500)
+
+    return () => {
+      clearTimeout(connectTimeout)
+      disconnect()
+    }
   }, [connect, disconnect])
 
   return {
     socket: socketRef.current,
+    connected: socketRef.current?.connected ?? false,
     connect,
     disconnect,
     emit,

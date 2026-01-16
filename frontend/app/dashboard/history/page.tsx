@@ -119,7 +119,7 @@ export default function HistoryPage() {
   }
 
   const handleSelectSession = (session: BrowserSession) => {
-    setCurrentSession(session)
+    router.push(`/dashboard/session/${session.id}`)
   }
 
   const handleSendMessage = async (content: string) => {
