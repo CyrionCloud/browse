@@ -42,10 +42,14 @@ export class OwlService extends EventEmitter {
     logger.info('OwlService initialized', { config: this.config })
   }
 
-  async analyzeScreenshot(image: Buffer): Promise<OwlAnalysisResult> {
+  async analyzeScreenshot(image: Buffer, options?: {
+    ocrEngine?: 'tesseract' | 'easyocr' | 'paddleocr'
+    languages?: string[]
+    useMLDetection?: boolean
+  }): Promise<OwlAnalysisResult> {
     const startTime = Date.now()
 
-    logger.info('Analyzing screenshot with Owl')
+    logger.info('Analyzing screenshot with Owl', { options })
 
     try {
       const base64Image = image.toString('base64')
@@ -54,7 +58,10 @@ export class OwlService extends EventEmitter {
         ocrEnabled: this.config.ocrEnabled,
         elementDetection: this.config.elementDetection,
         layoutAnalysis: this.config.layoutAnalysis,
-        confidenceThreshold: this.config.confidenceThreshold
+        confidenceThreshold: this.config.confidenceThreshold,
+        ocrEngine: options?.ocrEngine || 'tesseract',
+        languages: options?.languages || ['en', 'ch_sim'],
+        useMLDetection: options?.useMLDetection !== undefined ? options.useMLDetection : true
       })
 
       this.emit('analysis_complete', { duration: Date.now() - startTime })
@@ -152,6 +159,88 @@ export class OwlService extends EventEmitter {
       return result.element
     } catch (error: any) {
       logger.error('Failed to find element by description', { error })
+      throw error
+    }
+  }
+
+  async analyzeLayout(image: Buffer, elements?: any[]): Promise<any> {
+    const startTime = Date.now()
+
+    logger.info('Analyzing layout with Owl', { hasElements: !!elements })
+
+    try {
+      const base64Image = image.toString('base64')
+      const result = await this.bridge.call<any>('owl', 'analyze_layout', {
+        image: base64Image,
+        elements
+      })
+
+      this.emit('layout_analyzed', { duration: Date.now() - startTime })
+
+      return result
+    } catch (error: any) {
+      logger.error('Failed to analyze layout', { error })
+      throw error
+    }
+  }
+
+  async detectGrids(image: Buffer): Promise<any> {
+    const startTime = Date.now()
+
+    logger.info('Detecting grids with Owl')
+
+    try {
+      const base64Image = image.toString('base64')
+      const result = await this.bridge.call<any>('owl', 'detect_grids', {
+        image: base64Image
+      })
+
+      this.emit('grids_detected', { duration: Date.now() - startTime })
+
+      return result
+    } catch (error: any) {
+      logger.error('Failed to detect grids', { error })
+      throw error
+    }
+  }
+
+  async detectTables(image: Buffer): Promise<any> {
+    const startTime = Date.now()
+
+    logger.info('Detecting tables with Owl')
+
+    try {
+      const base64Image = image.toString('base64')
+      const result = await this.bridge.call<any>('owl', 'detect_tables', {
+        image: base64Image
+      })
+
+      this.emit('tables_detected', { duration: Date.now() - startTime })
+
+      return result
+    } catch (error: any) {
+      logger.error('Failed to detect tables', { error })
+      throw error
+    }
+  }
+
+  async getReadingOrder(image: Buffer, elements?: any[]): Promise<any> {
+    const startTime = Date.now()
+
+    logger.info('Getting reading order with Owl')
+
+    try {
+      const base64Image = image.toString('base64')
+      const result = await this.bridge.call<any>('owl', 'get_reading_order', {
+        image: base64Image,
+        elements
+      })
+
+      this.emit('reading_order_detected', { duration: Date.now() - startTime })
+
+      return result
+    } catch (error: any) {
+      logger.error('Failed to get reading order', { error })
       throw error
     }
   }

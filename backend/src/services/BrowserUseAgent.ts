@@ -11,7 +11,7 @@ import type {
 } from '@autobrowse/shared'
 
 const DEFAULT_CONFIG: BrowserUseSessionConfig = {
-  headless: true,
+  headless: process.env.BROWSER_HEADLESS !== 'false',
   viewport: { width: 1280, height: 720 },
   userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   highlightElements: false

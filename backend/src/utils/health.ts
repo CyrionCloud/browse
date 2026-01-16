@@ -25,8 +25,12 @@ export async function performHealthCheck(): Promise<HealthCheckResult> {
     uptime: process.uptime(),
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_SERVICE_KEY
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+                      process.env.SUPABASE_ANON_KEY ||
+                      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ||
+                      process.env.SUPABASE_PUBLISHABLE_DEFAULT_KEY ||
+                      process.env.SUPABASE_SERVICE_KEY
 
   if (!supabaseUrl || !supabaseKey) {
     result.services.database = {
@@ -36,16 +40,21 @@ export async function performHealthCheck(): Promise<HealthCheckResult> {
   } else {
     const dbStart = Date.now()
     try {
-      const response = await fetch(`${supabaseUrl}/rest/v1/profiles?select=id&limit=1`, {
+      // Try to check if Supabase is reachable
+      // With anon key, we can only access public data or use RLS
+      const response = await fetch(`${supabaseUrl}/rest/v1/`, {
         headers: {
           apikey: supabaseKey,
           Authorization: `Bearer ${supabaseKey}`,
         },
       })
+      // Even a 401 means Supabase is reachable - just means we need auth
+      // 2xx or 401 = reachable, other errors = unreachable
+      const isReachable = response.ok || response.status === 401
       result.services.database = {
-        status: response.ok ? 'healthy' : 'unhealthy',
+        status: isReachable ? 'healthy' : 'unhealthy',
         latency: Date.now() - dbStart,
-        error: response.ok ? undefined : `HTTP ${response.status}`,
+        error: isReachable ? undefined : `HTTP ${response.status}`,
       }
     } catch (error: any) {
       result.services.database = {

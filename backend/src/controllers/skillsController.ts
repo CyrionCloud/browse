@@ -1,10 +1,13 @@
 import { Request, Response } from 'express'
-import { supabase } from '../lib/supabase'
+import { supabase as defaultSupabase } from '../lib/supabase'
 import { logger } from '../utils/logger'
 import { asyncHandler, BadRequestError, NotFoundError } from '../middleware/errorHandler'
 
 export const getSkills = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const category = req.query.category as string | undefined
+
+  // Use authenticated client if available, otherwise default (skills table should be publicly readable)
+  const supabase = req.supabase || defaultSupabase
 
   let query = supabase
     .from('skills')
@@ -28,6 +31,9 @@ export const getSkills = asyncHandler(async (req: Request, res: Response): Promi
 
 export const getSkill = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params
+
+  // Use authenticated client if available
+  const supabase = req.supabase || defaultSupabase
 
   const { data: skill, error } = await supabase
     .from('skills')
@@ -54,6 +60,9 @@ export const getUserSkills = asyncHandler(async (req: Request, res: Response): P
   if (pathUserId !== userId) {
     throw new NotFoundError('User not found')
   }
+
+  // Use authenticated Supabase client for RLS
+  const supabase = req.supabase || defaultSupabase
 
   const { data: userSkills, error } = await supabase
     .from('user_skills')
@@ -84,7 +93,10 @@ export const toggleSkill = asyncHandler(async (req: Request, res: Response): Pro
     throw new BadRequestError('Enabled field must be a boolean')
   }
 
-  // Check if skill exists
+  // Use authenticated Supabase client for RLS
+  const supabase = req.supabase || defaultSupabase
+
+  // Check if skill exists (skills table should be publicly readable)
   const { data: skill, error: skillError } = await supabase
     .from('skills')
     .select('id')
@@ -132,6 +144,9 @@ export const updateSkillConfig = asyncHandler(async (req: Request, res: Response
     throw new BadRequestError('Custom config must be an object')
   }
 
+  // Use authenticated Supabase client for RLS
+  const supabase = req.supabase || defaultSupabase
+
   // Check if skill exists
   const { data: skill, error: skillError } = await supabase
     .from('skills')
@@ -174,6 +189,9 @@ export const incrementSkillUsage = asyncHandler(async (req: Request, res: Respon
   }
 
   const { id: skillId } = req.params
+
+  // Use authenticated Supabase client for RLS
+  const supabase = req.supabase || defaultSupabase
 
   // Get current usage count
   const { data: userSkill, error: getError } = await supabase

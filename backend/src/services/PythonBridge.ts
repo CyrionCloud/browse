@@ -145,11 +145,19 @@ export class PythonBridge extends EventEmitter {
 
   private spawnPythonProcess(): ChildProcess {
     try {
-      return spawn('python3', [this.bridgePath], {
+      // Use virtual environment Python if available
+      const venvPython = `${process.cwd()}/venv/bin/python`
+      const pythonPath = require('fs').existsSync(venvPython) ? venvPython : 'python3'
+
+      logger.info('Spawning Python process', { pythonPath, bridgePath: this.bridgePath })
+
+      return spawn(pythonPath, [this.bridgePath], {
         stdio: ['pipe', 'pipe', 'pipe'],
         env: {
           ...process.env,
-          PYTHONUNBUFFERED: '1'
+          PYTHONUNBUFFERED: '1',
+          // Ensure venv packages are found
+          VIRTUAL_ENV: `${process.cwd()}/venv`
         }
       })
     } catch (error) {
@@ -284,6 +292,31 @@ export class PythonBridge extends EventEmitter {
       activeProcesses: this.getActiveProcessCount(),
       pendingRequests: this.pendingRequests.size,
       maxProcesses: this.config.maxProcesses
+    }
+  }
+
+  async healthCheck(): Promise<{
+    status: string
+    browserUseAvailable: boolean
+    visionAvailable: boolean
+    ocrAvailable: boolean
+  }> {
+    try {
+      const result = await this.call<any>('browser_use', 'health', {}, { timeout: 5000 })
+      return {
+        status: result.status || 'healthy',
+        browserUseAvailable: result.browser_use_available || false,
+        visionAvailable: result.vision_available || false,
+        ocrAvailable: result.ocr_available || false
+      }
+    } catch (error) {
+      logger.error('Health check failed', { error })
+      return {
+        status: 'unhealthy',
+        browserUseAvailable: false,
+        visionAvailable: false,
+        ocrAvailable: false
+      }
     }
   }
 }

@@ -1,26 +1,42 @@
 import { EventEmitter } from 'events'
-import { BrowserUseService } from './BrowserUseService'
-import { supabase } from '../lib/supabase'
+import { SupabaseClient } from '@supabase/supabase-js'
+import { IntegratedAutomationService, automationService, LatencyMetrics } from './IntegratedAutomationService'
+import { supabase as defaultSupabase } from '../lib/supabase'
 import { logger } from '../utils/logger'
-import type { BrowserSession, AgentConfig, ActionResult, SessionStatus } from '@autobrowse/shared'
+import type { BrowserSession, AgentConfig, ActionResult, SessionStatus, DomTree } from '@autobrowse/shared'
 
 interface ActiveSession {
   session: BrowserSession
-  browserUseService: BrowserUseService
   startedAt: Date
+  latestScreenshot?: string
+  latestDomTree?: DomTree
+  supabaseClient?: SupabaseClient
 }
 
 export class SessionManager extends EventEmitter {
   private activeSessions: Map<string, ActiveSession> = new Map()
 
+  // Helper to get the appropriate Supabase client
+  private getClient(sessionId?: string, providedClient?: SupabaseClient): SupabaseClient {
+    if (providedClient) return providedClient
+    if (sessionId) {
+      const activeSession = this.activeSessions.get(sessionId)
+      if (activeSession?.supabaseClient) return activeSession.supabaseClient
+    }
+    return defaultSupabase
+  }
+
   async createSession(
     userId: string,
     taskDescription: string,
-    agentConfig?: Partial<AgentConfig>
+    agentConfig?: Partial<AgentConfig>,
+    supabaseClient?: SupabaseClient
   ): Promise<BrowserSession> {
+    const supabase = supabaseClient || defaultSupabase
+
     try {
       // Check user quota
-      const hasQuota = await this.checkUserQuota(userId)
+      const hasQuota = await this.checkUserQuota(userId, supabase)
       if (!hasQuota) {
         throw new Error('Session quota exceeded')
       }
@@ -45,7 +61,7 @@ export class SessionManager extends EventEmitter {
       logger.info('Session created', { sessionId: session.id, userId })
 
       // Track analytics
-      await this.trackAnalytics(userId, 'session_created', { session_id: session.id })
+      await this.trackAnalytics(userId, 'session_created', { session_id: session.id }, supabase)
 
       this.emit('session_created', session)
 
@@ -56,7 +72,11 @@ export class SessionManager extends EventEmitter {
     }
   }
 
-  async startSession(sessionId: string): Promise<void> {
+  async startSession(sessionId: string, supabaseClient?: SupabaseClient): Promise<void> {
+    const supabase = this.getClient(sessionId, supabaseClient)
+
+    logger.info('startSession called', { sessionId })
+
     try {
       const { data: session, error } = await supabase
         .from('browser_sessions')
@@ -64,101 +84,208 @@ export class SessionManager extends EventEmitter {
         .eq('id', sessionId)
         .single()
 
+      logger.info('Session fetched from DB', { sessionId, found: !!session, error: error?.message })
+
       if (error || !session) {
         throw new Error('Session not found')
       }
 
-      if (session.status !== 'pending' && session.status !== 'paused') {
+      // Allow starting from pending, paused, or restarting from terminated states
+      const canStart = ['pending', 'paused'].includes(session.status)
+      const canRestart = ['completed', 'failed', 'cancelled'].includes(session.status)
+
+      if (!canStart && !canRestart) {
         throw new Error(`Cannot start session with status: ${session.status}`)
       }
 
+      // If restarting a terminated session, reset the session state
+      if (canRestart) {
+        logger.info('Restarting terminated session', { sessionId, previousStatus: session.status })
+        await supabase
+          .from('browser_sessions')
+          .update({
+            status: 'pending',
+            error_message: null,
+            result: null,
+            started_at: null,
+            completed_at: null,
+            duration_seconds: null,
+            actions_count: 0,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', sessionId)
+      }
+
       // Update session status
-      await this.updateSessionStatus(sessionId, 'active')
+      logger.info('Updating session status to active', { sessionId })
+      await this.updateSessionStatus(sessionId, 'active', supabase)
 
-      const browserUseService = new BrowserUseService()
-
-      // Store active session
+      // Store active session with its authenticated client
       this.activeSessions.set(sessionId, {
         session: session as BrowserSession,
-        browserUseService,
-        startedAt: new Date()
+        startedAt: new Date(),
+        supabaseClient: supabaseClient
       })
 
+      logger.info('Emitting session_start event', { sessionId })
       this.emit('session_start', { sessionId, session })
 
-      // Execute task
-      browserUseService.on('progress', (progress) => {
-        this.emit('session_update', { sessionId, progress })
-      })
+      // Get enabled skills for user
+      const enabledSkills = session.agent_config?.enabledSkills || []
 
-      browserUseService.on('action', async (result: ActionResult) => {
-        await this.storeAction(sessionId, result)
-        this.emit('action_executed', { sessionId, result })
-      })
+      logger.info('Starting automation service', { sessionId, taskDescription: session.task_description, enabledSkills })
 
-      browserUseService.on('complete', async (results: ActionResult[]) => {
-        await this.completeSession(sessionId, results)
-      })
-
-      browserUseService.on('error', async (error: Error) => {
-        await this.failSession(sessionId, error.message)
-      })
-
-      // Start task execution
-      browserUseService.executeTask({
+      // Execute task using IntegratedAutomationService
+      automationService.executeTaskStepByStep({
+        sessionId,
+        userId: session.user_id,
         taskDescription: session.task_description,
-        agentConfig: session.agent_config
+        agentConfig: session.agent_config,
+        enabledSkills,
+        onProgress: (progress) => {
+          logger.debug('Session progress', { sessionId, progress })
+          this.emit('session_update', { sessionId, progress })
+        },
+        onAction: async (result: ActionResult) => {
+          logger.info('Action executed', { sessionId, action: result.action, success: result.success })
+          await this.storeAction(sessionId, result)
+          this.emit('action_executed', { sessionId, result })
+        },
+        onScreenshot: (screenshot) => {
+          logger.info('Screenshot received', { sessionId, hasScreenshot: !!screenshot, length: screenshot?.length })
+          const activeSession = this.activeSessions.get(sessionId)
+          if (activeSession) {
+            activeSession.latestScreenshot = screenshot
+          }
+          this.emit('screenshot', { sessionId, screenshot })
+        },
+        onDomTree: (domTree) => {
+          logger.info('DOM tree received', { sessionId, hasElements: !!domTree?.elements?.length })
+          const activeSession = this.activeSessions.get(sessionId)
+          if (activeSession) {
+            activeSession.latestDomTree = domTree
+          }
+          this.emit('dom_tree', { sessionId, domTree })
+        }
+      }).then(async (results) => {
+        logger.info('Session execution completed', { sessionId, actionCount: results.length })
+        await this.completeSession(sessionId, results)
       }).catch(async (error) => {
+        logger.error('Session execution failed', { sessionId, error: error.message })
         await this.failSession(sessionId, error.message)
       })
 
-      logger.info('Session started', { sessionId })
+      logger.info('Session started with IntegratedAutomationService', { sessionId })
     } catch (error) {
       logger.error('Start session error', { sessionId, error })
       throw error
     }
   }
 
-  async pauseSession(sessionId: string): Promise<void> {
+  async pauseSession(sessionId: string, supabaseClient?: SupabaseClient): Promise<void> {
     const activeSession = this.activeSessions.get(sessionId)
     if (!activeSession) {
       throw new Error('Session not active')
     }
 
-    activeSession.browserUseService.pause()
-    await this.updateSessionStatus(sessionId, 'paused')
+    const supabase = this.getClient(sessionId, supabaseClient)
+
+    automationService.pause(sessionId)
+    await this.updateSessionStatus(sessionId, 'paused', supabase)
 
     this.emit('session_paused', { sessionId })
     logger.info('Session paused', { sessionId })
   }
 
-  async resumeSession(sessionId: string): Promise<void> {
+  async resumeSession(sessionId: string, supabaseClient?: SupabaseClient): Promise<void> {
     const activeSession = this.activeSessions.get(sessionId)
     if (!activeSession) {
       throw new Error('Session not active')
     }
 
-    activeSession.browserUseService.resume()
-    await this.updateSessionStatus(sessionId, 'active')
+    const supabase = this.getClient(sessionId, supabaseClient)
+
+    automationService.resume(sessionId)
+    await this.updateSessionStatus(sessionId, 'active', supabase)
 
     this.emit('session_resumed', { sessionId })
     logger.info('Session resumed', { sessionId })
   }
 
-  async cancelSession(sessionId: string): Promise<void> {
+  async cancelSession(sessionId: string, supabaseClient?: SupabaseClient): Promise<void> {
     const activeSession = this.activeSessions.get(sessionId)
     if (activeSession) {
-      activeSession.browserUseService.cancel()
+      automationService.cancel(sessionId)
       this.activeSessions.delete(sessionId)
     }
 
-    await this.updateSessionStatus(sessionId, 'cancelled')
+    const supabase = this.getClient(sessionId, supabaseClient)
+    await this.updateSessionStatus(sessionId, 'cancelled', supabase)
 
     this.emit('session_cancelled', { sessionId })
     logger.info('Session cancelled', { sessionId })
   }
 
-  async getSession(sessionId: string): Promise<BrowserSession | null> {
+  async deleteSession(sessionId: string, supabaseClient?: SupabaseClient): Promise<void> {
+    const supabase = this.getClient(sessionId, supabaseClient)
+
+    // Cancel if active
+    const activeSession = this.activeSessions.get(sessionId)
+    if (activeSession) {
+      automationService.cancel(sessionId)
+      this.activeSessions.delete(sessionId)
+    }
+
+    // Delete related actions first (foreign key constraint)
+    const { error: actionsError } = await supabase
+      .from('browser_actions')
+      .delete()
+      .eq('session_id', sessionId)
+
+    if (actionsError) {
+      logger.error('Delete session actions error', { sessionId, error: actionsError })
+    }
+
+    // Delete related chat messages
+    const { error: messagesError } = await supabase
+      .from('chat_messages')
+      .delete()
+      .eq('session_id', sessionId)
+
+    if (messagesError) {
+      logger.error('Delete session messages error', { sessionId, error: messagesError })
+    }
+
+    // Delete the session
+    const { error } = await supabase
+      .from('browser_sessions')
+      .delete()
+      .eq('id', sessionId)
+
+    if (error) {
+      logger.error('Delete session error', { sessionId, error })
+      throw error
+    }
+
+    this.emit('session_deleted', { sessionId })
+    logger.info('Session deleted', { sessionId })
+  }
+
+  getLatestScreenshot(sessionId: string): string | undefined {
+    return this.activeSessions.get(sessionId)?.latestScreenshot
+  }
+
+  getLatestDomTree(sessionId: string): DomTree | undefined {
+    return this.activeSessions.get(sessionId)?.latestDomTree
+  }
+
+  getLatencyMetrics(sessionId: string): LatencyMetrics | undefined {
+    return automationService.getLatencyMetrics(sessionId)
+  }
+
+  async getSession(sessionId: string, supabaseClient?: SupabaseClient): Promise<BrowserSession | null> {
+    const supabase = this.getClient(sessionId, supabaseClient)
+
     const { data, error } = await supabase
       .from('browser_sessions')
       .select('*')
@@ -173,7 +300,9 @@ export class SessionManager extends EventEmitter {
     return data as BrowserSession
   }
 
-  async getUserSessions(userId: string, limit: number = 20): Promise<BrowserSession[]> {
+  async getUserSessions(userId: string, limit: number = 20, supabaseClient?: SupabaseClient): Promise<BrowserSession[]> {
+    const supabase = supabaseClient || defaultSupabase
+
     const { data, error } = await supabase
       .from('browser_sessions')
       .select('*')
@@ -189,7 +318,9 @@ export class SessionManager extends EventEmitter {
     return data as BrowserSession[]
   }
 
-  async getSessionActions(sessionId: string): Promise<any[]> {
+  async getSessionActions(sessionId: string, supabaseClient?: SupabaseClient): Promise<any[]> {
+    const supabase = this.getClient(sessionId, supabaseClient)
+
     const { data, error } = await supabase
       .from('browser_actions')
       .select('*')
@@ -204,7 +335,12 @@ export class SessionManager extends EventEmitter {
     return data
   }
 
-  private async updateSessionStatus(sessionId: string, status: SessionStatus): Promise<void> {
+  private async updateSessionStatus(
+    sessionId: string,
+    status: SessionStatus,
+    supabaseClient?: SupabaseClient
+  ): Promise<void> {
+    const supabase = this.getClient(sessionId, supabaseClient)
     const updateData: any = { status, updated_at: new Date().toISOString() }
 
     if (status === 'active') {
@@ -212,7 +348,6 @@ export class SessionManager extends EventEmitter {
     } else if (status === 'completed' || status === 'failed' || status === 'cancelled') {
       updateData.completed_at = new Date().toISOString()
 
-      // Calculate duration
       const activeSession = this.activeSessions.get(sessionId)
       if (activeSession) {
         const durationMs = Date.now() - activeSession.startedAt.getTime()
@@ -233,10 +368,10 @@ export class SessionManager extends EventEmitter {
   private async completeSession(sessionId: string, results: ActionResult[]): Promise<void> {
     const activeSession = this.activeSessions.get(sessionId)
     const userId = activeSession?.session.user_id
+    const supabase = this.getClient(sessionId)
 
-    await this.updateSessionStatus(sessionId, 'completed')
+    await this.updateSessionStatus(sessionId, 'completed', supabase)
 
-    // Update actions count
     await supabase
       .from('browser_sessions')
       .update({ actions_count: results.length })
@@ -248,7 +383,7 @@ export class SessionManager extends EventEmitter {
       await this.trackAnalytics(userId, 'session_completed', {
         session_id: sessionId,
         actions_count: results.length
-      })
+      }, supabase)
     }
 
     this.emit('session_complete', { sessionId, results })
@@ -258,6 +393,7 @@ export class SessionManager extends EventEmitter {
   private async failSession(sessionId: string, errorMessage: string): Promise<void> {
     const activeSession = this.activeSessions.get(sessionId)
     const userId = activeSession?.session.user_id
+    const supabase = this.getClient(sessionId)
 
     await supabase
       .from('browser_sessions')
@@ -274,7 +410,7 @@ export class SessionManager extends EventEmitter {
       await this.trackAnalytics(userId, 'error_occurred', {
         session_id: sessionId,
         error: errorMessage
-      })
+      }, supabase)
     }
 
     this.emit('session_failed', { sessionId, error: errorMessage })
@@ -282,6 +418,8 @@ export class SessionManager extends EventEmitter {
   }
 
   private async storeAction(sessionId: string, result: ActionResult): Promise<void> {
+    const supabase = this.getClient(sessionId)
+
     const { error } = await supabase
       .from('browser_actions')
       .insert({
@@ -299,7 +437,9 @@ export class SessionManager extends EventEmitter {
     }
   }
 
-  private async checkUserQuota(userId: string): Promise<boolean> {
+  private async checkUserQuota(userId: string, supabaseClient?: SupabaseClient): Promise<boolean> {
+    const supabase = supabaseClient || defaultSupabase
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('usage_quota')
@@ -317,8 +457,11 @@ export class SessionManager extends EventEmitter {
   private async trackAnalytics(
     userId: string,
     eventType: string,
-    eventData: Record<string, any>
+    eventData: Record<string, any>,
+    supabaseClient?: SupabaseClient
   ): Promise<void> {
+    const supabase = supabaseClient || defaultSupabase
+
     await supabase
       .from('usage_analytics')
       .insert({

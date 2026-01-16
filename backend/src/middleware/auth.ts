@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express'
-import { supabase } from '../lib/supabase'
+import { SupabaseClient } from '@supabase/supabase-js'
+import { supabase, createAuthenticatedClient } from '../lib/supabase'
 import { logger } from '../utils/logger'
+import jwt from 'jsonwebtoken'
 
 // Extend Express Request type
 declare global {
@@ -11,6 +13,8 @@ declare global {
         email: string
         role?: string
       }
+      accessToken?: string
+      supabase?: SupabaseClient // Authenticated Supabase client for this user
     }
   }
 }
@@ -30,7 +34,44 @@ export async function authenticateUser(
 
     const token = authHeader.substring(7)
 
-    // Verify token with Supabase
+    // First try to decode the JWT locally (faster, no network call)
+    try {
+      const decoded = jwt.decode(token) as any
+      logger.debug('JWT decoded', {
+        sub: decoded?.sub,
+        email: decoded?.email,
+        exp: decoded?.exp,
+        aud: decoded?.aud,
+        role: decoded?.role
+      })
+
+      if (decoded && decoded.sub && decoded.exp) {
+        // Check if token is expired
+        const now = Math.floor(Date.now() / 1000)
+        if (decoded.exp < now) {
+          res.status(401).json({ error: 'Token expired' })
+          return
+        }
+
+        // Token is valid - attach user info from JWT claims
+        req.user = {
+          id: decoded.sub,
+          email: decoded.email || '',
+          role: decoded.role
+        }
+        req.accessToken = token
+        req.supabase = createAuthenticatedClient(token)
+
+        logger.info('User authenticated from JWT', { userId: decoded.sub, email: decoded.email })
+        next()
+        return
+      }
+    } catch (jwtError) {
+      // JWT decode failed, fall back to Supabase verification
+      logger.warn('JWT decode failed, trying Supabase verification', { error: jwtError })
+    }
+
+    // Fall back to Supabase verification (makes network call)
     const { data: { user }, error } = await supabase.auth.getUser(token)
 
     if (error || !user) {
@@ -45,8 +86,10 @@ export async function authenticateUser(
       email: user.email || '',
       role: user.role
     }
+    req.accessToken = token
+    req.supabase = createAuthenticatedClient(token)
 
-    logger.debug('User authenticated', { userId: user.id })
+    logger.debug('User authenticated via Supabase', { userId: user.id })
 
     next()
   } catch (error) {

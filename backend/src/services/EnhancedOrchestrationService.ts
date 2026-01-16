@@ -94,7 +94,7 @@ export class EnhancedOrchestrationService extends EventEmitter {
   ): Promise<ExecutionPlan> {
     const startTime = Date.now()
 
-    logger.info('Creating execution plan', { task })
+    logger.info('Creating execution plan', { task, hasDomTree: !!domTree })
 
     try {
       this.emit('planning', { task, status: 'Creating plan...' })
@@ -102,27 +102,10 @@ export class EnhancedOrchestrationService extends EventEmitter {
       let context = ''
 
       if (domTree) {
-        context = `\n\nCurrent page context:\nURL: ${domTree.url}\nTitle: ${domTree.title}\nElements: ${domTree.elements.length}`
+        context = this.buildDomContext(domTree)
       }
 
-      const prompt = `Task: ${task}${context}\n\nPlan the browser actions needed to complete this task.
-Break down into specific steps:
-1. Navigation actions (URL to go to)
-2. Click actions (elements to click on)
-3. Form input actions (text to type)
-4. Scroll actions (up/down to find elements)
-5. Data extraction actions (text to copy)
-
-Return your plan as a JSON array of actions with this structure:
-[
-  {
-    "action": "navigate|click|type|scroll|extract",
-    "description": "Brief description of what to do",
-    "selector": "CSS selector if known (otherwise leave empty)",
-    "target_description": "User-friendly description for element targeting"
-  }
-]`
-
+      const prompt = this.buildPlanningPrompt(task, context)
       const response = await this.agentService.chat(prompt)
 
       const actions = this.parseActionsFromResponse(response)
@@ -166,6 +149,61 @@ Return your plan as a JSON array of actions with this structure:
 
       return plan
     }
+  }
+
+  private buildDomContext(domTree: DomTree): string {
+    let context = `Current page:\nURL: ${domTree.url}\nTitle: ${domTree.title}\nElements: ${domTree.elements.length}`
+
+    const interactiveElements = domTree.elements.filter(
+      (el) => ['button', 'link', 'input', 'select'].includes(el.tag)
+    )
+
+    if (interactiveElements.length > 0) {
+      context += `\n\nInteractive elements (first 10):`
+      interactiveElements.slice(0, 10).forEach((el) => {
+        let elementInfo = `- <${el.tag}>`
+
+        if (el.attributes.id) {
+          elementInfo += ` id="${el.attributes.id}"`
+        }
+
+        if (el.attributes.class) {
+          elementInfo += ` class="${el.attributes.class}"`
+        }
+
+        if (el.text) {
+          elementInfo += `: "${el.text}"`
+        }
+
+        context += `${elementInfo}</${el.tag}>`
+      })
+    }
+
+    return context
+  }
+
+  private buildPlanningPrompt(task: string, context: string): string {
+    return `Task: ${task}
+
+${context}
+
+Plan browser actions needed to complete this task.
+Break down into specific steps:
+1. Navigation actions (URL to go to)
+2. Click actions (elements to click on)
+3. Form input actions (text to type)
+4. Scroll actions (up/down to find elements)
+5. Data extraction actions (text to copy)
+
+Return your plan as a JSON array of actions with this structure:
+[
+  {
+    "action": "navigate|click|type|scroll|extract",
+    "description": "Brief description of what to do",
+    "selector": "CSS selector if known (otherwise leave empty)",
+    "target_description": "User-friendly description for element targeting"
+  }
+]`
   }
 
   private parseActionsFromResponse(response: string): Array<{ action: string; description: string; selector?: string }> {

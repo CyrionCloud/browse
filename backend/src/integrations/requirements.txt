@@ -1,0 +1,24 @@
+# Python Bridge Dependencies for AutoBrowse
+# Install with: pip install -r requirements.txt
+
+# Browser automation
+playwright>=1.40.0
+browser-use>=0.1.0
+
+# Vision/OCR
+opencv-python>=4.8.0
+numpy>=1.24.0
+pytesseract>=0.3.10
+
+# LLM Integration
+anthropic>=0.18.0
+
+# Async support
+asyncio-throttle>=1.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+
+# Optional: For advanced browser-use features
+# bubus - removed (package not found on PyPI)

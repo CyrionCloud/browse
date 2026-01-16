@@ -50,23 +50,25 @@ export class WebSocketServer {
         }
       })
 
-      // Handle session subscription
-      socket.on('subscribe', (sessionId: string) => {
+      // Handle session subscription (support both string and object format)
+      socket.on('subscribe', (data: string | { sessionId: string }) => {
+        const sessionId = typeof data === 'string' ? data : data.sessionId
         const socketData = this.socketData.get(socket.id)
-        if (socketData) {
+        if (socketData && sessionId) {
           socketData.subscribedSessions.add(sessionId)
           socket.join(`session:${sessionId}`)
-          logger.debug('Client subscribed to session', { socketId: socket.id, sessionId })
+          logger.info('Client subscribed to session', { socketId: socket.id, sessionId })
         }
       })
 
-      // Handle session unsubscription
-      socket.on('unsubscribe', (sessionId: string) => {
+      // Handle session unsubscription (support both string and object format)
+      socket.on('unsubscribe', (data: string | { sessionId: string }) => {
+        const sessionId = typeof data === 'string' ? data : data.sessionId
         const socketData = this.socketData.get(socket.id)
-        if (socketData) {
+        if (socketData && sessionId) {
           socketData.subscribedSessions.delete(sessionId)
           socket.leave(`session:${sessionId}`)
-          logger.debug('Client unsubscribed from session', { socketId: socket.id, sessionId })
+          logger.info('Client unsubscribed from session', { socketId: socket.id, sessionId })
         }
       })
 
@@ -85,38 +87,59 @@ export class WebSocketServer {
 
   private setupSessionManagerEvents(): void {
     this.sessionManager.on('session_created', (session) => {
+      logger.info('WS: session_created event', { sessionId: session.id, userId: session.user_id })
       this.emitToUser(session.user_id, 'session_created', session)
     })
 
     this.sessionManager.on('session_start', ({ sessionId, session }) => {
+      logger.info('WS: session_start event', { sessionId, status: session?.status })
       this.emitToSession(sessionId, 'session_start', { sessionId, session })
     })
 
     this.sessionManager.on('session_update', ({ sessionId, progress }) => {
+      logger.info('WS: session_update event', { sessionId, progress })
       this.emitToSession(sessionId, 'session_update', { sessionId, progress })
     })
 
     this.sessionManager.on('action_executed', ({ sessionId, result }) => {
+      logger.info('WS: action_executed event', { sessionId, action: result?.action, success: result?.success })
       this.emitToSession(sessionId, 'action_executed', { sessionId, result })
     })
 
+    // Forward screenshot events to clients
+    this.sessionManager.on('screenshot', ({ sessionId, screenshot }) => {
+      logger.info('WS: screenshot event', { sessionId, hasScreenshot: !!screenshot, length: screenshot?.length })
+      this.emitToSession(sessionId, 'screenshot', { sessionId, screenshot })
+    })
+
+    // Forward DOM tree events to clients
+    this.sessionManager.on('dom_tree', ({ sessionId, domTree }) => {
+      logger.info('WS: dom_tree event', { sessionId, hasElements: !!domTree?.elements?.length })
+      this.emitToSession(sessionId, 'dom_tree', { sessionId, domTree })
+    })
+
     this.sessionManager.on('session_complete', ({ sessionId, results }) => {
+      logger.info('WS: session_complete event', { sessionId, actionCount: results?.length })
       this.emitToSession(sessionId, 'task_complete', { sessionId, results })
     })
 
     this.sessionManager.on('session_failed', ({ sessionId, error }) => {
+      logger.error('WS: session_failed event', { sessionId, error })
       this.emitToSession(sessionId, 'error', { sessionId, error })
     })
 
     this.sessionManager.on('session_paused', ({ sessionId }) => {
+      logger.info('WS: session_paused event', { sessionId })
       this.emitToSession(sessionId, 'paused', { sessionId })
     })
 
     this.sessionManager.on('session_resumed', ({ sessionId }) => {
+      logger.info('WS: session_resumed event', { sessionId })
       this.emitToSession(sessionId, 'session_update', { sessionId, status: 'active' })
     })
 
     this.sessionManager.on('session_cancelled', ({ sessionId }) => {
+      logger.info('WS: session_cancelled event', { sessionId })
       this.emitToSession(sessionId, 'cancelled', { sessionId })
     })
   }

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 import { AgentService } from '../services/AgentService'
-import { supabase } from '../lib/supabase'
+import { supabase as defaultSupabase } from '../lib/supabase'
 import { logger } from '../utils/logger'
 import { asyncHandler, BadRequestError, NotFoundError } from '../middleware/errorHandler'
 
@@ -19,15 +19,22 @@ export const sendMessage = asyncHandler(async (req: Request, res: Response): Pro
     throw new BadRequestError('Session ID and content required')
   }
 
+  // Use authenticated Supabase client for RLS
+  const supabase = req.supabase || defaultSupabase
+
   // Verify session belongs to user
   const { data: session, error: sessionError } = await supabase
     .from('browser_sessions')
     .select('*')
     .eq('id', session_id)
-    .eq('user_id', userId)
     .single()
 
   if (sessionError || !session) {
+    throw new NotFoundError('Session not found')
+  }
+
+  // Double-check ownership
+  if (session.user_id !== userId) {
     throw new NotFoundError('Session not found')
   }
 
@@ -92,15 +99,22 @@ export const getMessages = asyncHandler(async (req: Request, res: Response): Pro
 
   const { id: sessionId } = req.params
 
+  // Use authenticated Supabase client for RLS
+  const supabase = req.supabase || defaultSupabase
+
   // Verify session belongs to user
   const { data: session, error: sessionError } = await supabase
     .from('browser_sessions')
     .select('id, user_id')
     .eq('id', sessionId)
-    .eq('user_id', userId)
     .single()
 
   if (sessionError || !session) {
+    throw new NotFoundError('Session not found')
+  }
+
+  // Double-check ownership
+  if (session.user_id !== userId) {
     throw new NotFoundError('Session not found')
   }
 

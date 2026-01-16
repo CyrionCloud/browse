@@ -3,12 +3,17 @@ import dotenv from 'dotenv'
 
 dotenv.config()
 
-const supabaseUrl = process.env.SUPABASE_URL
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY
+// Support multiple environment variable names for flexibility
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+                    process.env.SUPABASE_ANON_KEY ||
+                    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ||
+                    process.env.SUPABASE_PUBLISHABLE_DEFAULT_KEY ||
+                    process.env.SUPABASE_SERVICE_KEY
 
 let supabase: SupabaseClient
 
-if (!supabaseUrl || !supabaseServiceKey || supabaseUrl.includes('your-project')) {
+if (!supabaseUrl || !supabaseKey || supabaseUrl.includes('your-project')) {
   console.warn('⚠️  Supabase credentials not configured. Database features will not work.')
   console.warn('   Please update backend/.env with your Supabase credentials.')
 
@@ -26,10 +31,33 @@ if (!supabaseUrl || !supabaseServiceKey || supabaseUrl.includes('your-project'))
     }
   } as unknown as SupabaseClient
 } else {
-  supabase = createClient(supabaseUrl, supabaseServiceKey, {
+  // Create base client with anon/publishable key
+  supabase = createClient(supabaseUrl, supabaseKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false
+    }
+  })
+}
+
+/**
+ * Create a Supabase client authenticated with a user's JWT token
+ * This client will respect RLS policies for that user
+ */
+export function createAuthenticatedClient(accessToken: string): SupabaseClient {
+  if (!supabaseUrl || !supabaseKey) {
+    return supabase // Return base client if not configured
+  }
+
+  return createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
     }
   })
 }
