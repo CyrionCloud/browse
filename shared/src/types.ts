@@ -51,7 +51,7 @@ export interface BrowserSession {
 // ============================================
 
 export interface AgentConfig {
-  model: 'browser-use-llm' | 'claude-sonnet-4.5'
+  model: 'autobrowse-llm' | 'claude-sonnet-4.5' | 'claude-opus-4.5' | 'deepseek-v3' | 'deepseek-r1' | 'gemini-2.5-pro' | 'gemini-2.5-flash' | 'gpt-4o' | 'deepseek-chat' | 'deepseek-reasoner' | 'claude-sonnet' | 'gpt-4' | 'gemini-pro'
   maxSteps: number
   outputType: 'streaming' | 'batch'
   highlightElements: boolean
@@ -256,6 +256,13 @@ export interface PaginatedResponse<T = any> {
 // PYTHON BRIDGE TYPES
 // ============================================
 
+export interface BoundingBox {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export type PythonServiceType = 'browser_use' | 'owl'
 
 export interface PythonMessage {
@@ -322,6 +329,7 @@ export interface BrowserUseAction {
 export interface BrowserUseResult {
   success: boolean
   action: string
+  description?: string
   screenshot?: string
   extractedData?: any
   error?: string
@@ -344,21 +352,88 @@ export interface OwlAnalysisResult {
   elements: OwlElement[]
   text: string[]
   layout: OwlLayout
+  image_size: { width: number; height: number }
+  ml_detection_used: boolean
+  timestamp: string
 }
 
 export interface OwlElement {
-  type: 'button' | 'link' | 'input' | 'text' | 'image' | 'dropdown'
+  id: string
+  type: string
+  boundingBox: BoundingBox
   coordinates: { x: number; y: number }
-  boundingBox: { x: number; y: number; width: number; height: number }
-  text?: string
   confidence: number
+  text?: string
+  element_class?: number
 }
 
 export interface OwlLayout {
-  header: { x: number; y: number; width: number; height: number }
-  main: { x: number; y: number; width: number; height: number }
-  sidebar: { x: number; y: number; width: number; height: number }
-  footer: { x: number; y: number; width: number; height: number }
+  header: BoundingBox | null
+  navigation: BoundingBox | null
+  main: BoundingBox | null
+  sidebar: BoundingBox | null
+  footer: BoundingBox | null
+}
+
+// Advanced Layout Types
+export interface LayoutAnalysis {
+  layout_type: 'grid' | 'flex' | 'table' | 'flow' | 'absolute' | 'unknown'
+  grids: GridCell[][]
+  flex_containers: FlexContainer[]
+  tables: TableStructure[]
+  semantic_regions: SemanticRegions
+  reading_order: string[]
+  scrollable_areas: ScrollableArea[]
+  image_size: { width: number; height: number }
+}
+
+export interface GridCell {
+  id: string
+  bounding_box: BoundingBox
+  row: number
+  col: number
+  rowspan?: number
+  colspan?: number
+}
+
+export interface FlexContainer {
+  id: string
+  bounding_box: BoundingBox
+  direction: 'row' | 'column'
+  wrap?: boolean
+  justify?: string
+  align?: string
+  children?: string[]
+}
+
+export interface TableStructure {
+  id: string
+  bounding_box: BoundingBox
+  rows: number
+  cols: number
+  headers?: string[]
+  cells?: any[]
+}
+
+export type SemanticRegion = 'header' | 'navigation' | 'main' | 'sidebar' | 'footer' | 'hero' | 'content' | 'aside' | 'breadcrumb' | 'pagination' | 'unknown'
+
+export interface SemanticRegions {
+  header?: BoundingBox
+  navigation?: BoundingBox
+  main?: BoundingBox
+  sidebar?: BoundingBox
+  footer?: BoundingBox
+  hero?: BoundingBox
+  content?: BoundingBox
+  aside?: BoundingBox
+  breadcrumb?: BoundingBox
+  pagination?: BoundingBox
+}
+
+export interface ScrollableArea {
+  type: 'scrollbar' | 'container'
+  bounding_box: BoundingBox
+  orientation?: 'vertical' | 'horizontal'
 }
 
 export interface OwlConfig {
@@ -366,4 +441,31 @@ export interface OwlConfig {
   elementDetection: boolean
   layoutAnalysis: boolean
   confidenceThreshold: number
+  useMLDetection?: boolean
+  ocrEngine?: 'tesseract' | 'easyocr' | 'paddleocr'
+  languages?: string[]
+  visualizeAssociations?: boolean
 }
+
+// UI Element Types for ML Detection
+export type UIElementType =
+  | 'button'
+  | 'input'
+  | 'text'
+  | 'link'
+  | 'icon'
+  | 'image'
+  | 'checkbox'
+  | 'radio'
+  | 'dropdown'
+  | 'slider'
+  | 'navigation'
+  | 'sidebar'
+  | 'header'
+  | 'footer'
+  | 'container'
+  | 'card'
+  | 'list'
+  | 'table'
+   | 'tab'
+   | 'menu'
