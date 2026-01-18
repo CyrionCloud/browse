@@ -232,15 +232,34 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
                                 print(f"Found page via agent.browser.playwright_browser")
                 
                 if page:
-                    screenshot_bytes = await page.screenshot()
-                    screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
-                    print(f"✓ Captured screenshot for step {step_count} ({len(screenshot_bytes)} bytes)")
-                    
-                    # Send screenshot via WebSocket
-                    await notify_session(session_id, "screenshot", {
-                        "sessionId": session_id,
-                        "screenshot": screenshot_base64
-                    })
+                    try:
+                        # Wait for page to be in a stable state (important for headless)
+                        await page.wait_for_load_state('domcontentloaded', timeout=3000)
+                        # Small delay to ensure rendering is complete
+                        await asyncio.sleep(0.3)
+                        
+                        screenshot_bytes = await page.screenshot(full_page=False)
+                        screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
+                        print(f"✓ Captured screenshot for step {step_count} ({len(screenshot_bytes)} bytes)")
+                        
+                        # Send screenshot via WebSocket
+                        await notify_session(session_id, "screenshot", {
+                            "sessionId": session_id,
+                            "screenshot": screenshot_base64
+                        })
+                    except Exception as screenshot_error:
+                        print(f"Screenshot capture error for page: {screenshot_error}")
+                        # Try without waiting as fallback
+                        try:
+                            screenshot_bytes = await page.screenshot(full_page=False)
+                            screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
+                            print(f"✓ Captured screenshot (fallback) for step {step_count}")
+                            await notify_session(session_id, "screenshot", {
+                                "sessionId": session_id,
+                                "screenshot": screenshot_base64
+                            })
+                        except Exception as fallback_error:
+                            print(f"Fallback screenshot also failed: {fallback_error}")
                 else:
                     print(f"✗ Could not find page for screenshot at step {step_count}")
             except Exception as e:
