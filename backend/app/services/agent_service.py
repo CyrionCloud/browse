@@ -5,6 +5,7 @@ from langchain_openai import ChatOpenAI
 from app.core.config import settings
 from app.services.websocket import notify_session
 from app.services.database import db
+from app.services.self_healing_service import SelfHealingService
 import traceback
 import json
 

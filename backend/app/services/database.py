@@ -151,5 +151,23 @@ class DatabaseService:
         # Delete the session
         res = client.table("browser_sessions").delete().eq("id", session_id).execute()
         return res.data
+    
+    async def log_error_recovery(self, session_id: str, error_data: dict, token: str = None):
+        """Log an error recovery attempt"""
+        client = self.get_authenticated_client(token) if token else self.get_client()
+        data = {
+            "session_id": session_id,
+            **error_data
+        }
+        try:
+            client.table("error_recovery_history").insert(data).execute()
+        except Exception as e:
+            logger.error(f"Failed to log error recovery: {e}")
+    
+    async def get_error_patterns(self, token: str = None):
+        """Get all error patterns"""
+        client = self.get_authenticated_client(token) if token else self.get_client()
+        res = client.table("error_patterns").select("*").execute()
+        return res.data
 
 db = DatabaseService()
