@@ -59,7 +59,7 @@ interface AppState {
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   setAgentConfig: (config: AgentConfig) => void
-  updateSessionData: (sessionId: string, data: Partial<SessionDataEntry>) => void
+  updateSessionData: (sessionId: string, data: Partial<SessionDataEntry> | ((current: SessionDataEntry) => Partial<SessionDataEntry>)) => void
   reset: () => void
 }
 
@@ -138,10 +138,14 @@ export const useAppStore = create<AppState>()(
             timeline: [],
             actions: [],
           }
+
+          // Support functional updates
+          const updates = typeof data === 'function' ? data(currentData) : data
+
           return {
             sessionData: {
               ...state.sessionData,
-              [sessionId]: { ...currentData, ...data },
+              [sessionId]: { ...currentData, ...updates },
             },
           }
         }),

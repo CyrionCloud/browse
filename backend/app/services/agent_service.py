@@ -56,43 +56,35 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
             api_key=settings.DEEPSEEK_API_KEY
         )
         
-        # Initialize Browser with anti-bot detection measures
-        # Using headful mode (headless=False) to avoid headless browser detection
-        # Adding stealth Chromium arguments to bypass fingerprinting
+        # Initialize Browser with headless mode (embedded browser only)
         browser_config = BrowserConfig(
-            headless=False,  # Headful mode - harder to detect than headless
-            disable_security=True,  # Disable some security features that reveal automation
+            headless=True,  # Headless mode - only embedded browser visible
+            disable_security=True,
             extra_chromium_args=[
-                # Disable automation detection flags
+                # Core anti-detection (still useful for headless)
                 "--disable-blink-features=AutomationControlled",
-                # Disable webdriver detection
                 "--disable-infobars",
-                # Pretend we're not automated
                 "--excludeSwitches=enable-automation",
                 "--excludeSwitches=enable-logging",
-                # Use real browser window size
+                # Window size for consistent screenshots
                 "--window-size=1920,1080",
-                "--start-maximized",
-                # Disable extensions that might be detected
+                # Features
                 "--disable-extensions",
-                # GPU and rendering (appear more like real browser)
                 "--disable-gpu",
                 "--no-sandbox",
                 "--disable-dev-shm-usage",
-                # Set a real-looking user data dir behavior
+                # Privacy
                 "--disable-background-networking",
                 "--disable-default-apps",
-                # Additional stealth
                 "--disable-sync",
                 "--disable-translate",
-                "--hide-scrollbars",
                 "--mute-audio",
             ],
         )
         browser = Browser(config=browser_config)
-        print(f"Browser initialized with anti-bot detection config (headful mode)")
+        print(f"Browser initialized in headless mode (embedded browser only)")
         
-        # Initialize Agent with stealth browser (headful mode for anti-detection)
+        # Initialize Agent with headless browser
         agent = Agent(
             task=task,
             llm=llm,
@@ -211,10 +203,7 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
                 screenshot_base64 = None
                 page = None
                 
-                # Wait a moment for page to render (prevents white screen)
-                await asyncio.sleep(0.5)
-                
-                # Try to get page from our browser variable first (most reliable for headful mode)
+                # Try to get page from our browser variable first (most reliable)
                 try:
                     if browser and hasattr(browser, 'playwright_browser') and browser.playwright_browser:
                         contexts = browser.playwright_browser.contexts

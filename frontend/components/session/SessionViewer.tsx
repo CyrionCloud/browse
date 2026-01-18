@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import { sessionsApi } from '@/lib/api'
-import { useAppStore } from '@/store/useAppStore'
+import { useAppStore, type SessionDataEntry } from '@/store/useAppStore'
 import { cn, formatDuration, formatDate } from '@/lib/utils'
 import { Card, Button, Badge } from '@/components/ui'
 import {
@@ -96,16 +96,17 @@ export function SessionViewer({ session, onSessionUpdate }: SessionViewerProps) 
       if (data.sessionId !== session.id) return
       console.log('action_executed received', data)
 
-      const updates: any = {}
-      if (data.result?.action) {
-        updates.actions = [...actions, data.result.action]
-      }
-      if (data.result?.screenshot) {
-        updates.screenshot = data.result.screenshot
-      }
-
-      if (Object.keys(updates).length > 0) {
-        updateSessionData(session.id, updates)
+      if (data.result?.action || data.result?.screenshot) {
+        updateSessionData(session.id, (current) => {
+          const updates: Partial<SessionDataEntry> = {}
+          if (data.result?.action) {
+            updates.actions = [...current.actions, data.result.action]
+          }
+          if (data.result?.screenshot) {
+            updates.screenshot = data.result.screenshot
+          }
+          return updates
+        })
       }
       setCurrentStep((prev) => prev + 1)
     }
@@ -142,9 +143,7 @@ export function SessionViewer({ session, onSessionUpdate }: SessionViewerProps) 
 
       console.log('Adding new action to state:', newAction)
 
-      // Update store
-      const updatedActions = [...actions, newAction]
-
+      // Create timeline entry
       const timelineEntry: TimelineEntry = {
         id: `timeline-${data.step}-${Date.now()}`,
         timestamp: new Date(),
@@ -156,12 +155,12 @@ export function SessionViewer({ session, onSessionUpdate }: SessionViewerProps) 
         result: stepData?.result,
         url: stepData?.url,
       }
-      const updatedTimeline = [...timelineEntries, timelineEntry]
 
-      updateSessionData(session.id, {
-        actions: updatedActions,
-        timeline: updatedTimeline
-      })
+      // Update store using functional pattern to prevent race conditions
+      updateSessionData(session.id, (current) => ({
+        actions: [...current.actions, newAction],
+        timeline: [...current.timeline, timelineEntry]
+      }))
     }
 
     const handleDomTree = (data: { sessionId: string; domTree: DomTree }) => {
@@ -176,18 +175,20 @@ export function SessionViewer({ session, onSessionUpdate }: SessionViewerProps) 
       if (data.sessionId !== session.id) return
       console.log('screenshot received', { sessionId: data.sessionId, hasScreenshot: !!data.screenshot, length: data.screenshot?.length })
       if (data.screenshot) {
-        // Update store with new screenshot and update last timeline entry
-        const updatedTimeline = [...timelineEntries]
-        if (updatedTimeline.length > 0) {
-          updatedTimeline[updatedTimeline.length - 1] = {
-            ...updatedTimeline[updatedTimeline.length - 1],
-            screenshot: data.screenshot
+        // Update store with functional pattern
+        updateSessionData(session.id, (current) => {
+          const updatedTimeline = [...current.timeline]
+          if (updatedTimeline.length > 0) {
+            updatedTimeline[updatedTimeline.length - 1] = {
+              ...updatedTimeline[updatedTimeline.length - 1],
+              screenshot: data.screenshot
+            }
           }
-        }
 
-        updateSessionData(session.id, {
-          screenshot: data.screenshot,
-          timeline: updatedTimeline
+          return {
+            screenshot: data.screenshot,
+            timeline: updatedTimeline
+          }
         })
       }
     }
