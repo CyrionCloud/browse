@@ -13,7 +13,7 @@ interface SkillCardProps {
 export function SkillCard({ skill, onViewDetails }: SkillCardProps) {
     return (
         <Card
-            className="h-full flex flex-col hover:shadow-lg transition-shadow cursor-pointer group"
+            className="p-6 h-full flex flex-col hover:shadow-lg transition-shadow cursor-pointer group"
             onClick={() => onViewDetails(skill)}
         >
             {/* Header */}
