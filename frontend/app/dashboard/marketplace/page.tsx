@@ -1,206 +1,197 @@
 'use client'
 
-import { useState } from 'react'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, Button, Badge, Input } from '@/components/ui'
-import { Search, ShoppingBag, Star, Download, TrendingUp, Clock } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, Loader2 } from 'lucide-react'
+import { Button, Card } from '@/components/ui'
+import { SkillCard } from '@/components/skills/SkillCard'
+import { SkillDetailModal } from '@/components/skills/SkillDetailModal'
+import type { PublicSkill, SkillCategory } from '@/lib/api/community-skills'
+import { communitySkillsApi } from '@/lib/api/community-skills'
 import { cn } from '@/lib/utils'
 
-interface MarketplaceSkill {
-  id: string
-  name: string
-  description: string
-  author: string
-  downloads: number
-  rating: number
-  price: 'Free' | 'Paid'
-  category: string
-  icon: string
-}
-
-const marketplaceSkills: MarketplaceSkill[] = [
-  {
-    id: '1',
-    name: 'E-commerce Scraper',
-    description: 'Extract product data from major e-commerce websites including prices, ratings, and availability.',
-    author: 'AutoBrowse Team',
-    downloads: 12500,
-    rating: 4.8,
-    price: 'Free',
-    category: 'Shopping',
-    icon: '🛒',
-  },
-  {
-    id: '2',
-    name: 'LinkedIn Profile Extractor',
-    description: 'Automatically extract LinkedIn profile information including work history and connections.',
-    author: 'Community Dev',
-    downloads: 8300,
-    rating: 4.6,
-    price: 'Free',
-    category: 'Research',
-    icon: '💼',
-  },
-  {
-    id: '3',
-    name: 'Social Media Monitor',
-    description: 'Monitor multiple social media platforms for brand mentions and trending topics.',
-    author: 'Pro Automation',
-    downloads: 6200,
-    rating: 4.5,
-    price: 'Paid',
-    category: 'Monitoring',
-    icon: '📱',
-  },
-  {
-    id: '4',
-    name: 'News Aggregator',
-    description: 'Collect and summarize news articles from multiple sources based on custom keywords.',
-    author: 'AI Labs',
-    downloads: 9800,
-    rating: 4.7,
-    price: 'Free',
-    category: 'Research',
-    icon: '📰',
-  },
-  {
-    id: '5',
-    name: 'Job Board Auto-Apply',
-    description: 'Automatically search and apply to jobs matching your criteria across multiple platforms.',
-    author: 'Career Tools Inc',
-    downloads: 15400,
-    rating: 4.9,
-    price: 'Paid',
-    category: 'Productivity',
-    icon: '💼',
-  },
-  {
-    id: '6',
-    name: 'Price Tracker',
-    description: 'Track prices of products across websites and get notified of discounts.',
-    author: 'Savvy Shopper',
-    downloads: 22000,
-    rating: 4.8,
-    price: 'Free',
-    category: 'Shopping',
-    icon: '💰',
-  },
-]
-
 export default function MarketplacePage() {
+  const [skills, setSkills] = useState<PublicSkill[]>([])
+  const [categories, setCategories] = useState<SkillCategory[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedCategory, setSelectedCategory] = useState<string>('')
+  const [sortBy, setSortBy] = useState<'popular' | 'trending' | 'top_rated' | 'recent'>('popular')
   const [searchQuery, setSearchQuery] = useState('')
-  const [activeCategory, setActiveCategory] = useState('all')
+  const [selectedSkill, setSelectedSkill] = useState<PublicSkill | null>(null)
 
-  const categories = ['All', 'Shopping', 'Research', 'Monitoring', 'Productivity', 'Automation']
+  useEffect(() => {
+    loadCategories()
+    loadSkills()
+  }, [])
 
-  const filteredSkills = marketplaceSkills.filter((skill) => {
-    const matchesSearch = skill.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      skill.description.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = activeCategory === 'all' || activeCategory === skill.category
-    return matchesSearch && matchesCategory
-  })
+  useEffect(() => {
+    loadSkills()
+  }, [selectedCategory, sortBy])
+
+  const loadCategories = async () => {
+    try {
+      const fetchedCategories = await communitySkillsApi.getCategories()
+      setCategories(fetchedCategories)
+    } catch (error) {
+      console.error('Failed to load categories:', error)
+    }
+  }
+
+  const loadSkills = async () => {
+    setLoading(true)
+    try {
+      const { skills: fetchedSkills } = await communitySkillsApi.getPublicSkills({
+        category: selectedCategory || undefined,
+        sort_by: sortBy,
+        limit: 50,
+      })
+      setSkills(fetchedSkills)
+    } catch (error) {
+      console.error('Failed to load skills:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredSkills = skills.filter((skill) =>
+    skill.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    skill.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    skill.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+  )
+
+  const handleImportSkill = async (skill: PublicSkill) => {
+    try {
+      await communitySkillsApi.importSkill(skill.id)
+      alert(`Successfully imported "${skill.name}" to your library!`)
+      setSelectedSkill(null)
+    } catch (error) {
+      console.error('Failed to import skill:', error)
+      alert('Failed to import skill. Please try again.')
+    }
+  }
+
+  const handleForkSkill = async (skill: PublicSkill) => {
+    const forkName = prompt(`Enter a name for your forked skill:`, `${skill.name} (My Version)`)
+    if (!forkName) return
+
+    try {
+      await communitySkillsApi.forkSkill(skill.id, forkName)
+      alert(`Successfully forked "${skill.name}" as "${forkName}"!`)
+      setSelectedSkill(null)
+    } catch (error) {
+      console.error('Failed to fork skill:', error)
+      alert('Failed to fork skill. Please try again.')
+    }
+  }
 
   return (
     <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Skill Marketplace</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Discover and install community-created automation skills
-          </p>
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-semibold text-foreground">Skill Marketplace</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Discover and install community-created automation skills
+        </p>
+      </div>
+
+      {/* Search and Sort */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search skills..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 rounded-lg bg-surface border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+          />
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search marketplace..."
-              className="pl-10"
-            />
-          </div>
-        </div>
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as any)}
+          className="px-4 py-2 rounded-lg bg-surface border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
+        >
+          <option value="popular">Most Popular</option>
+          <option value="trending">Trending</option>
+          <option value="top_rated">Top Rated</option>
+          <option value="recent">Recently Added</option>
+        </select>
+      </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {categories.map((category) => (
-            <button
-              key={category}
-              onClick={() => setActiveCategory(category.toLowerCase())}
-              className={cn(
-                'px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors',
-                activeCategory === category.toLowerCase()
-                  ? 'bg-accent/15 text-accent'
-                  : 'bg-surface text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
-              )}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
+      {/* Category Filters */}
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        <button
+          onClick={() => setSelectedCategory('')}
+          className={cn(
+            'px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors',
+            selectedCategory === ''
+              ? 'bg-accent/15 text-accent'
+              : 'bg-surface text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
+          )}
+        >
+          All
+        </button>
+        {categories.map((category) => (
+          <button
+            key={category.id}
+            onClick={() => setSelectedCategory(category.id)}
+            className={cn(
+              'px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors',
+              selectedCategory === category.id
+                ? 'bg-accent/15 text-accent'
+                : 'bg-surface text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
+            )}
+          >
+            {category.icon} {category.name}
+          </button>
+        ))}
+      </div>
 
+      {/* Results Count */}
+      <div className="text-sm text-muted-foreground">
+        {loading ? 'Loading...' : `${filteredSkills.length} skill${filteredSkills.length !== 1 ? 's' : ''} found`}
+      </div>
+
+      {/* Skills Grid */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-accent" />
+        </div>
+      ) : filteredSkills.length === 0 ? (
+        <Card className="p-8 text-center">
+          <p className="text-muted-foreground">No skills found matching your criteria.</p>
+          <Button
+            onClick={() => {
+              setSearchQuery('')
+              setSelectedCategory('')
+            }}
+            variant="outline"
+            className="mt-4"
+          >
+            Clear Filters
+          </Button>
+        </Card>
+      ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredSkills.map((skill) => (
-            <Card key={skill.id} className="hover:border-accent/50 transition-colors">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-xl bg-surface-elevated flex items-center justify-center text-2xl">
-                      {skill.icon}
-                    </div>
-                    <div>
-                      <CardTitle className="text-base">{skill.name}</CardTitle>
-                      <p className="text-xs text-muted-foreground">by {skill.author}</p>
-                    </div>
-                  </div>
-                  <Badge variant={skill.price === 'Free' ? 'outline' : 'default'}>
-                    {skill.price}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  {skill.description}
-                </p>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Download className="h-3 w-3" />
-                    {skill.downloads.toLocaleString()}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Star className="h-3 w-3 text-amber-400 fill-amber-400" />
-                    {skill.rating}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Updated 2d ago
-                  </span>
-                </div>
-                <Button className="w-full" variant={skill.price === 'Free' ? 'default' : 'outline'}>
-                  {skill.price === 'Free' ? (
-                    <>
-                      <Download className="h-4 w-4 mr-2" />
-                      Install
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingBag className="h-4 w-4 mr-2" />
-                      Purchase - $9.99
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
+            <SkillCard
+              key={skill.id}
+              skill={skill}
+              onViewDetails={setSelectedSkill}
+            />
           ))}
         </div>
+      )}
 
-        {filteredSkills.length === 0 && (
-          <div className="text-center py-12">
-            <ShoppingBag className="h-12 w-12 text-muted mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">No skills found</h3>
-            <p className="text-sm text-muted-foreground">
-              Try adjusting your search or filter criteria
-            </p>
-          </div>
-        )}
+      {/* Detail Modal */}
+      {selectedSkill && (
+        <SkillDetailModal
+          skill={selectedSkill}
+          onClose={() => setSelectedSkill(null)}
+          onImport={handleImportSkill}
+          onFork={handleForkSkill}
+        />
+      )}
     </div>
   )
 }
