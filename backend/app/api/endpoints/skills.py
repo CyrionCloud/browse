@@ -59,6 +59,42 @@ def get_current_user_id(token: str = None) -> str:
 
 # Endpoints
 
+@router.get("/categories")
+async def get_categories():
+    """Get all skill categories"""
+    return {
+        "categories": [
+            {"id": "research", "name": "Research", "icon": "🔍"},
+            {"id": "shopping", "name": "Shopping", "icon": "🛒"},
+            {"id": "job_search", "name": "Job Search", "icon": "💼"},
+            {"id": "form_filling", "name": "Form Filling", "icon": "📝"},
+            {"id": "monitoring", "name": "Monitoring", "icon": "👁️"},
+            {"id": "productivity", "name": "Productivity", "icon": "⚡"},
+            {"id": "social", "name": "Social Media", "icon": "📱"}
+        ]
+    }
+
+
+@router.get("/my/imported")
+async def get_my_imported_skills(token: str = None):
+    """Get all skills imported by the current user"""
+    try:
+        user_id = get_current_user_id(token)
+        client = db.get_authenticated_client(token) if token else db.get_client()
+        
+        res = client.table("skill_imports")\
+            .select("*, skills!inner(*)")\
+            .eq("user_id", user_id)\
+            .eq("is_active", True)\
+            .execute()
+        
+        return {"imported_skills": res.data}
+        
+    except Exception as e:
+        logger.error(f"Failed to fetch imported skills: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/public")
 async def get_public_skills(
     category: Optional[str] = None,
@@ -349,37 +385,4 @@ async def import_skill(skill_id: str, token: str = None):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/my/imported")
-async def get_my_imported_skills(token: str = None):
-    """Get all skills imported by the current user"""
-    try:
-        user_id = get_current_user_id(token)
-        client = db.get_authenticated_client(token) if token else db.get_client()
-        
-        res = client.table("skill_imports")\
-            .select("*, skills!inner(*)")\
-            .eq("user_id", user_id)\
-            .eq("is_active", True)\
-            .execute()
-        
-        return {"imported_skills": res.data}
-        
-    except Exception as e:
-        logger.error(f"Failed to fetch imported skills: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
-
-@router.get("/categories")
-async def get_categories():
-    """Get all skill categories"""
-    return {
-        "categories": [
-            {"id": "research", "name": "Research", "icon": "🔍"},
-            {"id": "shopping", "name": "Shopping", "icon": "🛒"},
-            {"id": "job_search", "name": "Job Search", "icon": "💼"},
-            {"id": "form_filling", "name": "Form Filling", "icon": "📝"},
-            {"id": "monitoring", "name": "Monitoring", "icon": "👁️"},
-            {"id": "productivity", "name": "Productivity", "icon": "⚡"},
-            {"id": "social", "name": "Social Media", "icon": "📱"}
-        ]
-    }
