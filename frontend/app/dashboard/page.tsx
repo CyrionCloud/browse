@@ -6,23 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAppStore } from '@/store/useAppStore'
 import { sessionsApi } from '@/lib/api'
 import { PageLoader } from '@/components/LoadingState'
-import type { AgentConfig } from '@autobrowse/shared'
 import { useRouter } from 'next/navigation'
-
-const defaultAgentConfig: AgentConfig = {
-  model: 'autobrowse-llm',
-  maxSteps: 50,
-  outputType: 'streaming',
-  highlightElements: true,
-  hashMode: false,
-  thinking: true,
-  vision: true,
-  profile: null,
-  proxyLocation: '',
-  allowedDomains: [],
-  secrets: {},
-  enabledSkills: [],
-}
 
 interface ExecutionMode {
   id: string
@@ -46,6 +30,7 @@ export default function DashboardPage() {
     setMessages,
     setLoading,
     isLoading,
+    agentConfig,  // Use config from store
   } = useAppStore()
   const [taskInput, setTaskInput] = useState('')
   const [selectedMode, setSelectedMode] = useState<ExecutionMode>(executionModes[0])
@@ -56,10 +41,12 @@ export default function DashboardPage() {
     setLoading(true)
 
     try {
+      // Use agentConfig from store (set via Settings page)
       const session = await sessionsApi.create(taskInput.trim(), {
-        ...defaultAgentConfig,
+        ...agentConfig,
         enabledSkills: [selectedMode.id],
       })
+      console.log('Creating session with config:', { maxSteps: agentConfig.maxSteps, model: agentConfig.model })
       addSession(session)
       setCurrentSession(session)
       setMessages([])

@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "autobrowse-backend"
+version = "0.1.0"
+description = "FastAPI Backend for AutoBrowse"
+authors = ["AutoBrowse Team"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.110.0"
+uvicorn = "^0.27.1"
+pydantic = "^2.6.1"
+pydantic-settings = "^2.2.1"
+supabase = "^2.3.4"
+python-socketio = "^5.11.1"
+python-dotenv = "^1.0.1"
+browser-use = {version = "^0.1.40", extras = ["memory"]}
+langchain-anthropic = "^0.3.3"
+langchain-openai = "^0.3.0"
+playwright = "^1.42.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

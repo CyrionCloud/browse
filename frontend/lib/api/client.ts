@@ -2,7 +2,7 @@ import axios, { AxiosError } from 'axios'
 import type { BrowserSession, ChatMessage, Skill, AgentConfig, APIResponse } from '@autobrowse/shared'
 import { supabase } from '../supabase/client'
 
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 
 const api = axios.create({
   baseURL: API_URL,
@@ -92,6 +92,7 @@ export const sessionsApi = {
   },
 
   create: async (taskDescription: string, agentConfig?: AgentConfig): Promise<BrowserSession> => {
+    console.log('[API] Creating session at:', API_URL)
     const { data } = await api.post<APIResponse<BrowserSession>>('/api/sessions', {
       task_description: taskDescription,
       agent_config: agentConfig,
@@ -133,6 +134,18 @@ export const sessionsApi = {
   getMessages: async (sessionId: string): Promise<ChatMessage[]> => {
     const { data } = await api.get<APIResponse<ChatMessage[]>>(`/api/sessions/${sessionId}/messages`)
     return data.data || []
+  },
+
+  /**
+   * Send an intervention message to a running agent.
+   * This allows changing the agent's course of action mid-session.
+   */
+  intervene: async (sessionId: string, message: string): Promise<{ success: boolean; message: string }> => {
+    const { data } = await api.post<APIResponse<{ success: boolean; message: string }>>(`/api/sessions/${sessionId}/intervene`, {
+      message,
+    })
+    if (!data.data) throw new Error(data.error || 'Failed to send intervention')
+    return data.data
   },
 }
 

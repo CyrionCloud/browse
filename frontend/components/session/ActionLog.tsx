@@ -28,6 +28,27 @@ const actionIcons: Partial<Record<ActionType, typeof MousePointer>> = {
   drag: MousePointer,
 }
 
+// Extract a human-readable action name from the action data
+const getActionDisplayName = (action: BrowserAction): string => {
+  // Check if metadata has action array with action names
+  if (action.metadata?.action) {
+    const actionData = action.metadata.action
+    if (Array.isArray(actionData) && actionData.length > 0) {
+      const firstAction = actionData[0]
+      if (typeof firstAction === 'object') {
+        // Get first key from action object (e.g., 'go_to_url', 'click_element_by_index')
+        const actionKey = Object.keys(firstAction)[0]
+        if (actionKey) {
+          // Convert snake_case to Title Case with emoji
+          return actionKey.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+        }
+      }
+    }
+  }
+  // Fallback to action type
+  return action.action_type.charAt(0).toUpperCase() + action.action_type.slice(1)
+}
+
 export function ActionLog({ actions, sessionStatus, onSelectAction }: ActionLogProps) {
   const [expandedActions, setExpandedActions] = useState<Set<string>>(new Set())
   const [filter, setFilter] = useState('')
@@ -106,16 +127,17 @@ export function ActionLog({ actions, sessionStatus, onSelectAction }: ActionLogP
           <div className="divide-y divide-border">
             {filteredActions.map((action, index) => {
               const Icon = actionIcons[action.action_type] || MousePointer
-              const isExpanded = expandedActions.has(action.id)
+              const actionKey = action.id || `action-${index}-${action.created_at}`
+              const isExpanded = expandedActions.has(actionKey)
 
               return (
                 <div
-                    key={action.id}
-                    className={cn(
-                      'p-3 hover:bg-surface-elevated transition-colors cursor-pointer',
-                      action.screenshot_url && 'border-l-2 border-accent'
-                    )}
-                    onClick={() => onSelectAction(action)}
+                  key={actionKey}
+                  className={cn(
+                    'p-3 hover:bg-surface-elevated transition-colors cursor-pointer',
+                    action.screenshot_url && 'border-l-2 border-accent'
+                  )}
+                  onClick={() => onSelectAction(action)}
                 >
                   <div className="flex items-start gap-3">
                     <div
@@ -133,43 +155,69 @@ export function ActionLog({ actions, sessionStatus, onSelectAction }: ActionLogP
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">#{index + 1}</span>
                         <span className="text-sm font-medium text-foreground capitalize">
-                          {action.action_type}
+                          {getActionDisplayName(action)}
                         </span>
                         {action.success ? (
                           <CheckCircle2 className="h-3 w-3 text-emerald-400" />
                         ) : (
                           <XCircle className="h-3 w-3 text-error-muted" />
                         )}
-                        {action.duration_ms && (
-                          <span className="text-xs text-muted-foreground">
-                            {formatDuration(Math.round(action.duration_ms / 1000))}
-                          </span>
-                        )}
                       </div>
 
-                      {action.target_description && (
-                        <p className="text-sm text-muted-foreground mt-1 truncate">
-                          {action.target_description}
-                        </p>
+                      {/* Goal - what the agent is trying to do */}
+                      {(action.target_description || action.metadata?.goal) && (
+                        <div className="mt-2 flex items-start gap-2">
+                          <span className="text-base">🎯</span>
+                          <p className="text-sm text-foreground">
+                            {action.metadata?.goal || action.target_description}
+                          </p>
+                        </div>
                       )}
 
-                      {action.target_selector && (
-                        <code className="text-xs text-accent bg-accent/10 px-1 py-0.5 mt-1 inline-block truncate max-w-full">
-                          {action.target_selector}
-                        </code>
+                      {/* Evaluation - how the previous step went */}
+                      {action.metadata?.evaluation && (
+                        <div className="mt-1 flex items-start gap-2">
+                          <span className="text-base">👍</span>
+                          <p className="text-xs text-muted-foreground">
+                            {action.metadata.evaluation}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Memory - agent's working memory */}
+                      {action.metadata?.memory && (
+                        <div className="mt-1 flex items-start gap-2">
+                          <span className="text-base">🧠</span>
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {action.metadata.memory}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Result - what happened */}
+                      {action.output_value && (
+                        <div className="mt-1 flex items-start gap-2">
+                          <span className="text-base">✅</span>
+                          <p className="text-xs text-accent">
+                            {action.output_value}
+                          </p>
+                        </div>
                       )}
 
                       {action.error_message && (
-                        <p className="text-xs text-error-muted mt-1">
-                          {action.error_message}
-                        </p>
+                        <div className="mt-1 flex items-start gap-2">
+                          <span className="text-base">❌</span>
+                          <p className="text-xs text-error-muted">
+                            {action.error_message}
+                          </p>
+                        </div>
                       )}
                     </div>
 
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
-                        toggleExpand(action.id)
+                        toggleExpand(actionKey)
                       }}
                       className="p-1 text-muted-foreground hover:text-foreground"
                     >

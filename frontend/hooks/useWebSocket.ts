@@ -1,136 +1,165 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { useAppStore } from '@/store/useAppStore'
 import type { WSEvent } from '@autobrowse/shared'
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:4000'
+// Socket.IO uses HTTP for initial handshake, then upgrades to WebSocket
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:8000'
 
-export function useWebSocket(sessionId?: string) {
-  const socketRef = useRef<Socket | null>(null)
-  const { setWsConnected, addWsEvent, updateSession, addMessage } = useAppStore()
+// Singleton socket instance
+let globalSocket: Socket | null = null
+let connectionCount = 0
 
-  const connect = useCallback(() => {
-    if (socketRef.current?.connected) return
+export function useWebSocket() {
+  const [socket, setSocket] = useState<Socket | null>(null)
+  const [connected, setConnected] = useState(false)
+  const { setWsConnected, addWsEvent, updateSession } = useAppStore()
 
-    const socket = io(WS_URL, {
-      transports: ['websocket'],
-      autoConnect: true,
-    })
+  useEffect(() => {
+    connectionCount++
 
-    socket.on('connect', () => {
-      console.log('WebSocket connected:', socket.id)
-      setWsConnected(true)
-
-      if (sessionId) {
-        socket.emit('subscribe', { sessionId })
-      }
-    })
-
-    socket.on('disconnect', () => {
-      console.log('WebSocket disconnected')
-      setWsConnected(false)
-    })
-
-    socket.on('session_start', (event: WSEvent) => {
-      console.log('Session started:', event)
-      addWsEvent(event)
-      updateSession(event.sessionId, { status: 'active', started_at: event.timestamp })
-    })
-
-    socket.on('session_update', (event: WSEvent) => {
-      console.log('Session update:', event)
-      addWsEvent(event)
-      updateSession(event.sessionId, event.data)
-    })
-
-    socket.on('action_executed', (event: WSEvent) => {
-      console.log('Action executed:', event)
-      addWsEvent(event)
-    })
-
-    socket.on('planning', (event: WSEvent) => {
-      console.log('Planning:', event)
-      addWsEvent(event)
-    })
-
-    socket.on('plan_ready', (event: WSEvent) => {
-      console.log('Plan ready:', event)
-      addWsEvent(event)
-    })
-
-    socket.on('action_complete', (event: WSEvent) => {
-      console.log('Action complete:', event)
-      addWsEvent(event)
-    })
-
-    socket.on('task_complete', (event: WSEvent) => {
-      console.log('Task complete:', event)
-      addWsEvent(event)
-      updateSession(event.sessionId, {
-        status: 'completed',
-        completed_at: event.timestamp,
-        result: event.data,
+    // Create socket if it doesn't exist
+    if (!globalSocket) {
+      console.log('Creating new WebSocket connection to', WS_URL)
+      globalSocket = io(WS_URL, {
+        transports: ['websocket', 'polling'],  // Try websocket first, fallback to polling
+        autoConnect: true,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
       })
-    })
 
-    socket.on('error', (event: WSEvent) => {
-      console.error('WebSocket error:', event)
-      addWsEvent(event)
-      updateSession(event.sessionId, {
-        status: 'failed',
-        error_message: event.data.message,
+      globalSocket.on('connect', () => {
+        console.log('WebSocket connected:', globalSocket?.id)
+        setConnected(true)
+        setWsConnected(true)
       })
-    })
 
-    socket.on('paused', (event: WSEvent) => {
-      console.log('Session paused:', event)
-      addWsEvent(event)
-      updateSession(event.sessionId, { status: 'paused' })
-    })
+      globalSocket.on('disconnect', () => {
+        console.log('WebSocket disconnected')
+        setConnected(false)
+        setWsConnected(false)
+      })
 
-    socket.on('cancelled', (event: WSEvent) => {
-      console.log('Session cancelled:', event)
-      addWsEvent(event)
-      updateSession(event.sessionId, { status: 'cancelled' })
-    })
+      // Global event handlers for session state updates
+      globalSocket.on('session_start', (event: WSEvent) => {
+        console.log('Session started:', event)
+        addWsEvent(event)
+        updateSession(event.sessionId, { status: 'active', started_at: event.timestamp })
+      })
 
-    socketRef.current = socket
-  }, [sessionId, setWsConnected, addWsEvent, updateSession])
+      globalSocket.on('task_complete', (event: WSEvent) => {
+        console.log('Task complete:', event)
+        addWsEvent(event)
+        updateSession(event.sessionId, {
+          status: 'completed',
+          completed_at: event.timestamp,
+          result: event.data,
+        })
+      })
 
-  const disconnect = useCallback(() => {
-    if (socketRef.current) {
-      if (sessionId) {
-        socketRef.current.emit('unsubscribe', { sessionId })
-      }
-      socketRef.current.disconnect()
-      socketRef.current = null
-      setWsConnected(false)
+      globalSocket.on('error', (event: WSEvent) => {
+        console.error('WebSocket error:', event)
+        addWsEvent(event)
+        if (event.sessionId) {
+          updateSession(event.sessionId, {
+            status: 'failed',
+            error_message: event.data?.message,
+          })
+        }
+      })
+
+      globalSocket.on('paused', (event: WSEvent) => {
+        console.log('Session paused:', event)
+        addWsEvent(event)
+        updateSession(event.sessionId, { status: 'paused' })
+      })
+
+      globalSocket.on('cancelled', (event: WSEvent) => {
+        console.log('Session cancelled:', event)
+        addWsEvent(event)
+        updateSession(event.sessionId, { status: 'cancelled' })
+      })
+
+      // Action log events - for real-time step updates
+      globalSocket.on('action_log', (event: any) => {
+        console.log('Action log:', event)
+        addWsEvent({
+          type: 'action_log',
+          sessionId: event.sessionId,
+          timestamp: new Date().toISOString(),
+          data: event.data
+        })
+      })
+
+      // Session update events - for progress updates
+      globalSocket.on('session_update', (event: any) => {
+        console.log('Session update:', event)
+        addWsEvent({
+          type: 'session_update',
+          sessionId: event.sessionId,
+          timestamp: new Date().toISOString(),
+          data: { progress: event.progress, step: event.step }
+        })
+      })
+
+      // Session complete events - for final results
+      globalSocket.on('session_complete', (event: any) => {
+        console.log('Session complete:', event)
+        addWsEvent({
+          type: 'session_complete',
+          sessionId: event.sessionId,
+          timestamp: new Date().toISOString(),
+          data: event.results
+        })
+        updateSession(event.sessionId, {
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          result: event.results,
+        })
+      })
     }
-  }, [sessionId, setWsConnected])
+
+    // Set the socket in state so component re-renders
+    setSocket(globalSocket)
+    if (globalSocket.connected) {
+      setConnected(true)
+    }
+
+    // Also listen for connect events to update state
+    const handleConnect = () => {
+      setConnected(true)
+    }
+    const handleDisconnect = () => {
+      setConnected(false)
+    }
+
+    globalSocket.on('connect', handleConnect)
+    globalSocket.on('disconnect', handleDisconnect)
+
+    return () => {
+      connectionCount--
+      globalSocket?.off('connect', handleConnect)
+      globalSocket?.off('disconnect', handleDisconnect)
+
+      // Only disconnect if no components are using the socket
+      if (connectionCount === 0 && globalSocket) {
+        console.log('Disconnecting WebSocket - no more listeners')
+        globalSocket.disconnect()
+        globalSocket = null
+      }
+    }
+  }, [setWsConnected, addWsEvent, updateSession])
 
   const emit = useCallback((event: string, data: any) => {
-    if (socketRef.current?.connected) {
-      socketRef.current.emit(event, data)
+    if (globalSocket?.connected) {
+      globalSocket.emit(event, data)
     }
   }, [])
 
-  useEffect(() => {
-    // Delay connection to avoid race condition with page load
-    const connectTimeout = setTimeout(() => {
-      connect()
-    }, 500)
-
-    return () => {
-      clearTimeout(connectTimeout)
-      disconnect()
-    }
-  }, [connect, disconnect])
-
   return {
-    socket: socketRef.current,
-    connected: socketRef.current?.connected ?? false,
-    connect,
-    disconnect,
+    socket,
+    connected,
     emit,
   }
 }

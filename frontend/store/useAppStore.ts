@@ -1,11 +1,34 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
-import type { BrowserSession, ChatMessage, Skill, WSEvent } from '@autobrowse/shared'
+import type { BrowserSession, ChatMessage, Skill, WSEvent, AgentConfig } from '@autobrowse/shared'
 
 export type UserProfile = SupabaseUser & {
   subscription_tier?: 'free' | 'pro' | 'enterprise'
   created_at?: string
   updated_at?: string
+}
+
+const defaultAgentConfig: AgentConfig = {
+  model: 'autobrowse-llm',
+  maxSteps: 50,
+  outputType: 'streaming',
+  highlightElements: true,
+  hashMode: false,
+  thinking: true,
+  vision: true,
+  profile: null,
+  proxyLocation: '',
+  allowedDomains: [],
+  secrets: {},
+  enabledSkills: [],
+}
+
+// Per-session data for screenshots and timeline (persisted across navigation)
+export interface SessionDataEntry {
+  screenshot: string | null
+  timeline: any[]
+  actions: any[]
 }
 
 interface AppState {
@@ -18,6 +41,8 @@ interface AppState {
   wsEvents: WSEvent[]
   isLoading: boolean
   error: string | null
+  agentConfig: AgentConfig
+  sessionData: Record<string, SessionDataEntry>  // Per-session data
 
   setUser: (user: UserProfile | null) => void
   setSessions: (sessions: BrowserSession[]) => void
@@ -33,6 +58,8 @@ interface AppState {
   clearWsEvents: () => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
+  setAgentConfig: (config: AgentConfig) => void
+  updateSessionData: (sessionId: string, data: Partial<SessionDataEntry>) => void
   reset: () => void
 }
 
@@ -46,57 +73,88 @@ const initialState = {
   wsEvents: [],
   isLoading: false,
   error: null,
+  agentConfig: defaultAgentConfig,
+  sessionData: {},
 }
 
-export const useAppStore = create<AppState>((set) => ({
-  ...initialState,
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
+      ...initialState,
 
-  setUser: (user) => set({ user }),
+      setUser: (user) => set({ user }),
 
-  setSessions: (sessions) => set({ sessions }),
+      setSessions: (sessions) => set({ sessions }),
 
-  addSession: (session) =>
-    set((state) => ({ sessions: [session, ...state.sessions] })),
+      addSession: (session) =>
+        set((state) => ({ sessions: [session, ...state.sessions] })),
 
-  updateSession: (id, updates) =>
-    set((state) => ({
-      sessions: state.sessions.map((s) =>
-        s.id === id ? { ...s, ...updates } : s
-      ),
-      currentSession:
-        state.currentSession?.id === id
-          ? { ...state.currentSession, ...updates }
-          : state.currentSession,
-    })),
+      updateSession: (id, updates) =>
+        set((state) => ({
+          sessions: state.sessions.map((s) =>
+            s.id === id ? { ...s, ...updates } : s
+          ),
+          currentSession:
+            state.currentSession?.id === id
+              ? { ...state.currentSession, ...updates }
+              : state.currentSession,
+        })),
 
-  removeSession: (id) =>
-    set((state) => ({
-      sessions: state.sessions.filter((s) => s.id !== id),
-      currentSession:
-        state.currentSession?.id === id ? null : state.currentSession,
-    })),
+      removeSession: (id) =>
+        set((state) => ({
+          sessions: state.sessions.filter((s) => s.id !== id),
+          currentSession:
+            state.currentSession?.id === id ? null : state.currentSession,
+        })),
 
-  setCurrentSession: (session) => set({ currentSession: session }),
+      setCurrentSession: (session) => set({ currentSession: session }),
 
-  setMessages: (messages) => set({ messages }),
+      setMessages: (messages) => set({ messages }),
 
-  addMessage: (message) =>
-    set((state) => ({ messages: [...state.messages, message] })),
+      addMessage: (message) =>
+        set((state) => ({ messages: [...state.messages, message] })),
 
-  setSkills: (skills) => set({ skills }),
+      setSkills: (skills) => set({ skills }),
 
-  setWsConnected: (connected) => set({ wsConnected: connected }),
+      setWsConnected: (connected) => set({ wsConnected: connected }),
 
-  addWsEvent: (event) =>
-    set((state) => ({
-      wsEvents: [...state.wsEvents, event].slice(-100),
-    })),
+      addWsEvent: (event) =>
+        set((state) => ({
+          wsEvents: [...state.wsEvents, event].slice(-100),
+        })),
 
-  clearWsEvents: () => set({ wsEvents: [] }),
+      clearWsEvents: () => set({ wsEvents: [] }),
 
-  setLoading: (loading) => set({ isLoading: loading }),
+      setLoading: (loading) => set({ isLoading: loading }),
 
-  setError: (error) => set({ error }),
+      setError: (error) => set({ error }),
 
-  reset: () => set(initialState),
-}))
+      setAgentConfig: (config) => set({ agentConfig: config }),
+
+      updateSessionData: (sessionId, data) =>
+        set((state) => {
+          const currentData = state.sessionData[sessionId] || {
+            screenshot: null,
+            timeline: [],
+            actions: [],
+          }
+          return {
+            sessionData: {
+              ...state.sessionData,
+              [sessionId]: { ...currentData, ...data },
+            },
+          }
+        }),
+
+      reset: () => set(initialState),
+    }),
+    {
+      name: 'app-storage',
+      partialize: (state) => ({
+        agentConfig: state.agentConfig,
+        sessionData: state.sessionData,
+        // user: state.user // optionally persist user
+      }),
+    }
+  )
+)
