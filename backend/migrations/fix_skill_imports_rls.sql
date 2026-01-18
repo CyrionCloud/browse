@@ -16,11 +16,11 @@ CREATE POLICY "Allow creating skill imports"
 ON skill_imports FOR INSERT
 WITH CHECK (true);
 
--- Users can update/delete their own imports
+-- Users can update/delete their own imports (cast UUID to text)
 CREATE POLICY "Allow updating own imports"
 ON skill_imports FOR UPDATE
-USING (user_id = COALESCE(auth.uid()::text, user_id));
+USING (user_id = COALESCE((auth.uid())::text, user_id));
 
 CREATE POLICY "Allow deleting own imports"
 ON skill_imports FOR DELETE
-USING (user_id = COALESCE(auth.uid()::text, user_id));
+USING (user_id = COALESCE((auth.uid())::text, user_id));
