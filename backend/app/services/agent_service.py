@@ -56,35 +56,24 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
             api_key=settings.DEEPSEEK_API_KEY
         )
         
-        # Initialize Browser with headless mode (embedded browser only)
+        # Initialize Browser in HEADFUL mode for reliable screenshots
+        # Headless mode causes blank screenshots - headful renders properly
         browser_config = BrowserConfig(
-            headless=True,  # Headless mode - only embedded browser visible
+            headless=False,  # VISIBLE browser for proper rendering
             disable_security=True,
             extra_chromium_args=[
-                # Core anti-detection (still useful for headless)
                 "--disable-blink-features=AutomationControlled",
-                "--disable-infobars",
-                "--excludeSwitches=enable-automation",
-                "--excludeSwitches=enable-logging",
-                # Window size for consistent screenshots
+                "--disable-infobars", 
                 "--window-size=1920,1080",
-                # Features
                 "--disable-extensions",
                 "--disable-gpu",
                 "--no-sandbox",
-                "--disable-dev-shm-usage",
-                # Privacy
-                "--disable-background-networking",
-                "--disable-default-apps",
-                "--disable-sync",
-                "--disable-translate",
-                "--mute-audio",
             ],
         )
         browser = Browser(config=browser_config)
-        print(f"Browser initialized in headless mode (embedded browser only)")
+        print(f"🌐 Browser initialized in HEADFUL mode for screenshot reliability")
         
-        # Initialize Agent with headless browser
+        # Initialize Agent
         agent = Agent(
             task=task,
             llm=llm,
@@ -199,71 +188,77 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
                 print(f"DB log error: {e}")
 
             # Capture screenshot from browser and send to frontend
+            print(f"🖼️  Attempting screenshot capture for step {step_count}...")
             try:
                 screenshot_base64 = None
                 page = None
                 
-                # Try to get page from our browser variable first (most reliable)
-                try:
-                    if browser and hasattr(browser, 'playwright_browser') and browser.playwright_browser:
+                # Find the page - try multiple methods
+                if browser and hasattr(browser, 'playwright_browser') and browser.playwright_browser:
+                    try:
                         contexts = browser.playwright_browser.contexts
-                        if contexts and len(contexts) > 0 and contexts[0].pages:
-                            page = contexts[0].pages[0]
-                            print(f"Found page via stored browser.playwright_browser")
-                except Exception as e:
-                    print(f"Browser direct access failed: {e}")
+                        if contexts and len(contexts) > 0:
+                            context = contexts[0]
+                            if context.pages and len(context.pages) > 0:
+                                page = context.pages[0]
+                                print(f"   ✓ Found page via browser.playwright_browser (URL: {page.url})")
+                    except Exception as e:
+                        print(f"   ✗ Browser context access failed: {e}")
                 
-                # Fallback: try agent_instance paths
+                # Fallback to agent paths
                 if not page and agent_instance:
-                    # Try browser_context
                     if hasattr(agent_instance, 'browser_context') and agent_instance.browser_context:
-                        pages = agent_instance.browser_context.pages
-                        if pages:
-                            page = pages[0]
-                            print(f"Found page via agent.browser_context")
-                    
-                    # Try browser.context
-                    elif hasattr(agent_instance, 'browser') and agent_instance.browser:
-                        ab = agent_instance.browser
-                        if hasattr(ab, 'playwright_browser') and ab.playwright_browser:
-                            contexts = ab.playwright_browser.contexts
-                            if contexts and contexts[0].pages:
-                                page = contexts[0].pages[0]
-                                print(f"Found page via agent.browser.playwright_browser")
+                        try:
+                            if agent_instance.browser_context.pages:
+                                page = agent_instance.browser_context.pages[0]
+                                print(f"   ✓ Found page via agent.browser_context")
+                        except:
+                            pass
                 
                 if page:
+                    # Strategy 1: Try immediate screenshot first
                     try:
-                        # Wait for page to be in a stable state (important for headless)
-                        await page.wait_for_load_state('domcontentloaded', timeout=3000)
-                        # Small delay to ensure rendering is complete
-                        await asyncio.sleep(0.3)
-                        
-                        screenshot_bytes = await page.screenshot(full_page=False)
+                        screenshot_bytes = await page.screenshot(timeout=2000)
                         screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
-                        print(f"✓ Captured screenshot for step {step_count} ({len(screenshot_bytes)} bytes)")
+                        print(f"   ✓ Screenshot captured immediately ({len(screenshot_bytes)} bytes)")
+                    except Exception as immediate_err:
+                        print(f"   ⚠ Immediate screenshot failed: {immediate_err}")
                         
-                        # Send screenshot via WebSocket
+                        # Strategy 2: Wait for network idle then capture
+                        try:
+                            await page.wait_for_load_state('networkidle', timeout=5000)
+                            screenshot_bytes = await page.screenshot(timeout=2000)
+                            screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
+                            print(f"   ✓ Screenshot captured after networkidle ({len(screenshot_bytes)} bytes)")
+                        except Exception as networkidle_err:
+                            print(f"   ⚠ Networkidle screenshot failed: {networkidle_err}")
+                            
+                            # Strategy 3: Wait for load event then capture  
+                            try:
+                                await page.wait_for_load_state('load', timeout=5000)
+                                await asyncio.sleep(0.5)  # Extra render time
+                                screenshot_bytes = await page.screenshot(timeout=2000)
+                                screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
+                                print(f"   ✓ Screenshot captured after load+delay ({len(screenshot_bytes)} bytes)")
+                            except Exception as load_err:
+                                print(f"   ✗ All screenshot strategies failed: {load_err}")
+                    
+                    # Send screenshot if we got one
+                    if screenshot_base64:
                         await notify_session(session_id, "screenshot", {
                             "sessionId": session_id,
                             "screenshot": screenshot_base64
                         })
-                    except Exception as screenshot_error:
-                        print(f"Screenshot capture error for page: {screenshot_error}")
-                        # Try without waiting as fallback
-                        try:
-                            screenshot_bytes = await page.screenshot(full_page=False)
-                            screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
-                            print(f"✓ Captured screenshot (fallback) for step {step_count}")
-                            await notify_session(session_id, "screenshot", {
-                                "sessionId": session_id,
-                                "screenshot": screenshot_base64
-                            })
-                        except Exception as fallback_error:
-                            print(f"Fallback screenshot also failed: {fallback_error}")
+                        print(f"   📤 Screenshot sent to frontend for step {step_count}")
+                    else:
+                        print(f"   ✗ No screenshot data captured for step {step_count}")
                 else:
-                    print(f"✗ Could not find page for screenshot at step {step_count}")
+                    print(f"   ✗ Could not find page object for screenshot")
+                    
             except Exception as e:
-                print(f"Screenshot capture error: {e}")
+                print(f"   ✗ Screenshot capture error: {e}")
+                import traceback
+                traceback.print_exc()
 
             # Send WebSocket update
             await notify_session(session_id, "action_log", {
