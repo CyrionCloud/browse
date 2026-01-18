@@ -13,14 +13,14 @@ interface SkillCardProps {
 export function SkillCard({ skill, onViewDetails }: SkillCardProps) {
     return (
         <Card
-            className="p-6 h-full flex flex-col hover:shadow-lg transition-shadow cursor-pointer group"
+            className="p-6 h-full flex flex-col hover:shadow-lg hover:border-accent/50 transition-all cursor-pointer group bg-surface"
             onClick={() => onViewDetails(skill)}
         >
             {/* Header */}
             <div className="flex items-start gap-3 mb-3">
                 <div className="text-3xl flex-shrink-0">{skill.icon}</div>
                 <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-lg text-gray-900 truncate group-hover:text-electric-blue transition-colors">
+                    <h3 className="font-semibold text-lg text-foreground truncate group-hover:text-accent transition-colors">
                         {skill.name}
                     </h3>
                     <div className="flex items-center gap-2 mt-1">
@@ -35,7 +35,7 @@ export function SkillCard({ skill, onViewDetails }: SkillCardProps) {
             </div>
 
             {/* Description */}
-            <p className="text-sm text-gray-600 line-clamp-2 mb-4 flex-1">
+            <p className="text-sm text-muted-foreground line-clamp-2 mb-4 flex-1">
                 {skill.description}
             </p>
 
@@ -45,13 +45,13 @@ export function SkillCard({ skill, onViewDetails }: SkillCardProps) {
                     {skill.tags.slice(0, 3).map((tag) => (
                         <span
                             key={tag}
-                            className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full"
+                            className="px-2 py-0.5 bg-surface-elevated text-muted-foreground text-xs rounded-full border border-border"
                         >
                             {tag}
                         </span>
                     ))}
                     {skill.tags.length > 3 && (
-                        <span className="px-2 py-0.5 text-gray-500 text-xs">
+                        <span className="px-2 py-0.5 text-muted-foreground text-xs">
                             +{skill.tags.length - 3}
                         </span>
                     )}
@@ -59,7 +59,7 @@ export function SkillCard({ skill, onViewDetails }: SkillCardProps) {
             )}
 
             {/* Stats */}
-            <div className="flex items-center gap-4 pt-3 border-t border-gray-100 text-xs text-gray-500">
+            <div className="flex items-center gap-4 pt-3 border-t border-border text-xs text-muted-foreground">
                 <div className="flex items-center gap-1">
                     <Download className="w-3.5 h-3.5" />
                     <span>{skill.import_count || 0} imports</span>
@@ -73,7 +73,7 @@ export function SkillCard({ skill, onViewDetails }: SkillCardProps) {
                         e.stopPropagation()
                         onViewDetails(skill)
                     }}
-                    className="ml-auto flex items-center gap-1 text-electric-blue hover:text-electric-blue/80 transition-colors"
+                    className="ml-auto flex items-center gap-1 text-accent hover:text-accent/80 transition-colors font-medium"
                 >
                     <Eye className="w-3.5 h-3.5" />
                     <span>View</span>
