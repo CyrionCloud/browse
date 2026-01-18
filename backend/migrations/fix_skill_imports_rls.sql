@@ -1,26 +1,47 @@
 -- Fix RLS policies for skill imports
--- This allows users to import skills without strict authentication
+-- Simplified version for development/testing
 
 -- Drop existing policies
 DROP POLICY IF EXISTS "Users can view own imports" ON skill_imports;
 DROP POLICY IF EXISTS "Users can manage own imports" ON skill_imports;
+DROP POLICY IF EXISTS "Allow viewing skill imports" ON skill_imports;
+DROP POLICY IF EXISTS "Allow creating skill imports" ON skill_imports;
+DROP POLICY IF EXISTS "Allow updating own imports" ON skill_imports;
+DROP POLICY IF EXISTS "Allow deleting own imports" ON skill_imports;
 
--- Recreate policies with more permissive rules for testing
--- Users can view all imports
-CREATE POLICY "Allow viewing skill imports"
+-- Create permissive policies for development
+CREATE POLICY "skill_imports_select_policy"
 ON skill_imports FOR SELECT
 USING (true);
 
--- Allow inserting imports (relax auth requirement for now)
-CREATE POLICY "Allow creating skill imports"
+CREATE POLICY "skill_imports_insert_policy"
 ON skill_imports FOR INSERT
 WITH CHECK (true);
 
--- Users can update/delete their own imports (cast UUID to text)
-CREATE POLICY "Allow updating own imports"
+CREATE POLICY "skill_imports_update_policy"
 ON skill_imports FOR UPDATE
-USING (user_id = COALESCE((auth.uid())::text, user_id));
+USING (true);
 
-CREATE POLICY "Allow deleting own imports"
+CREATE POLICY "skill_imports_delete_policy"
 ON skill_imports FOR DELETE
-USING (user_id = COALESCE((auth.uid())::text, user_id));
+USING (true);
+
+-- Also fix user_skills table for imports to work
+DROP POLICY IF EXISTS "Users can view own skills" ON user_skills;
+DROP POLICY IF EXISTS "Users can manage own skills" ON user_skills;
+
+CREATE POLICY "user_skills_select_policy"
+ON user_skills FOR SELECT
+USING (true);
+
+CREATE POLICY "user_skills_insert_policy"
+ON user_skills FOR INSERT
+WITH CHECK (true);
+
+CREATE POLICY "user_skills_update_policy"
+ON user_skills FOR UPDATE
+USING (true);
+
+CREATE POLICY "user_skills_delete_policy"
+ON user_skills FOR DELETE
+USING (true);
