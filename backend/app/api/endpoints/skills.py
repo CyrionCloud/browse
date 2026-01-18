@@ -11,9 +11,10 @@ from app.core.config import settings
 from app.services.database import db
 import logging
 
+
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/skills", tags=["skills"])
+router = APIRouter(tags=["skills"])  # Prefix added in api.py
 
 
 # Request/Response Models
