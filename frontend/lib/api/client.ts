@@ -167,8 +167,11 @@ export const chatApi = {
 
 export const skillsApi = {
   getAll: async (): Promise<Skill[]> => {
-    const { data } = await api.get<APIResponse<Skill[]>>('/api/skills')
-    return data.data || []
+    // Use public skills endpoint since /api/skills doesn't exist
+    const { data } = await api.get<{ skills: Skill[]; total: number }>('/api/skills/public', {
+      params: { limit: 100 }
+    })
+    return data.skills || []
   },
 
   getUserSkills: async (): Promise<any[]> => {
