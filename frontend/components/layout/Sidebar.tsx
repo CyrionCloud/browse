@@ -19,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FolderOpen,
+  Key,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui'
@@ -41,6 +42,7 @@ export function Sidebar({ children }: SidebarProps) {
     { name: 'Marketplace', href: '/dashboard/marketplace', icon: ShoppingBag },
     { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
     { name: 'Library', href: '/dashboard/library', icon: FolderOpen },
+    { name: 'Credentials', href: '/dashboard/credentials', icon: Key },
   ]
 
   const handleSignOut = async () => {
