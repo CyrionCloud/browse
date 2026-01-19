@@ -61,7 +61,8 @@ export default function MySkillsPage() {
       const { data } = await axios.put(`${API_BASE}/skills/${skill.id}`, {
         is_public: !skill.is_public
       })
-      setSkills(skills.map(s => s.id === skill.id ? data.skill : s))
+      // Reload all skills to get fresh data
+      await loadSkills()
     } catch (error) {
       console.error('Failed to update skill:', error)
       alert('Failed to update skill')
@@ -79,8 +80,9 @@ export default function MySkillsPage() {
         tags: updatedSkill.tags,
         is_public: updatedSkill.is_public
       })
-      setSkills(skills.map(s => s.id === updatedSkill.id ? data.skill : s))
       setEditingSkill(null)
+      // Reload all skills to get fresh data
+      await loadSkills()
     } catch (error) {
       console.error('Failed to update skill:', error)
       alert('Failed to update skill')
@@ -106,12 +108,12 @@ export default function MySkillsPage() {
 
         {/* Skills Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {skills.map((skill) => (
+          {skills.filter(s => s).map((skill) => (
             <Card key={skill.id} className="p-6 hover:border-accent/50 transition-all">
               {/* Header */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <span className="text-4xl">{skill.icon}</span>
+                  <span className="text-4xl">{skill.icon || '⚡'}</span>
                   <div>
                     <h3 className="font-semibold text-foreground">{skill.name}</h3>
                     <Badge variant="outline" className="mt-1 text-xs">
