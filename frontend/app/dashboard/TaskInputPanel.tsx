@@ -40,11 +40,6 @@ interface Skill {
   description: string
 }
 
-interface SelectedSkill {
-  skill: Skill
-  context?: string
-}
-
 const executionModes: ExecutionMode[] = [
   { id: 'autobrowse', name: 'Auto Browse LLM', description: 'Full browser automation' },
   { id: 'research', name: 'Research Agent', description: 'Deep web research' },
@@ -63,7 +58,7 @@ export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onMode
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false)
   const [showSkillsMenu, setShowSkillsMenu] = useState(false)
   const [skills, setSkills] = useState<Skill[]>([])
-  const [selectedSkills, setSelectedSkills] = useState<SelectedSkill[]>([])
+  const [selectedSkills, setSelectedSkills] = useState<Skill[]>([])
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -81,20 +76,14 @@ export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onMode
   }
 
   const handleSelectSkill = (skill: Skill) => {
-    if (!selectedSkills.find(s => s.skill.id === skill.id)) {
-      setSelectedSkills([...selectedSkills, { skill }])
+    if (!selectedSkills.find(s => s.id === skill.id)) {
+      setSelectedSkills([...selectedSkills, skill])
     }
     setShowSkillsMenu(false)
   }
 
   const handleRemoveSkill = (skillId: string) => {
-    setSelectedSkills(selectedSkills.filter(s => s.skill.id !== skillId))
-  }
-
-  const handleSkillContextChange = (skillId: string, context: string) => {
-    setSelectedSkills(selectedSkills.map(s =>
-      s.skill.id === skillId ? { ...s, context } : s
-    ))
+    setSelectedSkills(selectedSkills.filter(s => s.id !== skillId))
   }
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,28 +125,21 @@ export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onMode
 
           {/* Selected Skills Display */}
           {selectedSkills.length > 0 && (
-            <div className="mb-4 space-y-2">
-              {selectedSkills.map((selectedSkill) => (
-                <div key={selectedSkill.skill.id} className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-lg border border-blue-500/30">
-                    <span className="text-sm">{selectedSkill.skill.icon}</span>
-                    <span className="text-sm font-medium">{selectedSkill.skill.name}</span>
+            <div className="mb-4">
+              <div className="flex flex-wrap gap-2">
+                {selectedSkills.map((skill) => (
+                  <div key={skill.id} className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-lg border border-blue-500/30">
+                    <span className="text-sm">{skill.icon}</span>
+                    <span className="text-sm font-medium">{skill.name}</span>
                     <button
-                      onClick={() => handleRemoveSkill(selectedSkill.skill.id)}
-                      className="text-blue-300 hover:text-blue-100"
+                      onClick={() => handleRemoveSkill(skill.id)}
+                      className="text-blue-300 hover:text-blue-100 transition-colors"
                     >
                       <X className="w-3 h-3" />
                     </button>
                   </div>
-                  <input
-                    type="text"
-                    placeholder="Add context (optional)..."
-                    value={selectedSkill.context || ''}
-                    onChange={(e) => handleSkillContextChange(selectedSkill.skill.id, e.target.value)}
-                    className="flex-1 bg-surface-elevated text-foreground placeholder-muted-foreground text-sm px-3 py-1.5 rounded-lg border border-border focus:outline-none focus:ring-1 focus:ring-accent"
-                  />
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
 
@@ -226,14 +208,14 @@ export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onMode
                             key={skill.id}
                             onClick={() => handleSelectSkill(skill)}
                             className="w-full flex items-center gap-2 p-2 hover:bg-surface-elevated transition-colors text-left"
-                            disabled={selectedSkills.some(s => s.skill.id === skill.id)}
+                            disabled={selectedSkills.some(s => s.id === skill.id)}
                           >
                             <span className="text-lg">{skill.icon}</span>
                             <div className="flex-1">
                               <p className="text-sm font-medium text-foreground">{skill.name}</p>
                               <p className="text-xs text-muted-foreground truncate">{skill.category}</p>
                             </div>
-                            {selectedSkills.some(s => s.skill.id === skill.id) && (
+                            {selectedSkills.some(s => s.id === skill.id) && (
                               <span className="text-xs text-accent">✓</span>
                             )}
                           </button>
