@@ -63,27 +63,27 @@ export function SkillDetailModal({ skill, onClose, onImport, onFork }: SkillDeta
     }
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+            <div className="bg-surface rounded-lg max-w-3xl w-full max-h-[90vh] flex flex-col border border-border shadow-2xl">
                 {/* Header */}
-                <div className="p-6 border-b border-gray-200">
+                <div className="p-6 border-b border-border">
                     <div className="flex items-start justify-between">
                         <div className="flex items-start gap-4">
                             <div className="text-5xl">{skill.icon}</div>
                             <div>
-                                <h2 className="text-2xl font-bold text-gray-900">{skill.name}</h2>
+                                <h2 className="text-2xl font-bold text-foreground">{skill.name}</h2>
                                 <div className="flex items-center gap-3 mt-2">
                                     <RatingStars rating={skill.rating_avg || 0} size="md" showCount count={skill.rating_count || 0} />
-                                    <span className="text-sm text-gray-500">•</span>
-                                    <span className="text-sm text-gray-500">{skill.import_count || 0} imports</span>
-                                    <span className="text-sm text-gray-500">•</span>
-                                    <span className="text-sm text-gray-500">{skill.fork_count || 0} forks</span>
+                                    <span className="text-sm text-muted-foreground">•</span>
+                                    <span className="text-sm text-muted-foreground">{skill.import_count || 0} imports</span>
+                                    <span className="text-sm text-muted-foreground">•</span>
+                                    <span className="text-sm text-muted-foreground">{skill.fork_count || 0} forks</span>
                                 </div>
                             </div>
                         </div>
                         <button
                             onClick={onClose}
-                            className="text-gray-400 hover:text-gray-600 transition-colors"
+                            className="text-muted-foreground hover:text-foreground transition-colors"
                         >
                             <X className="w-6 h-6" />
                         </button>
@@ -91,13 +91,13 @@ export function SkillDetailModal({ skill, onClose, onImport, onFork }: SkillDeta
                 </div>
 
                 {/* Tabs */}
-                <div className="border-b border-gray-200 px-6">
+                <div className="border-b border-border px-6">
                     <div className="flex gap-6">
                         <button
                             onClick={() => setActiveTab('overview')}
                             className={`py-3 px-1 border-b-2 transition-colors ${activeTab === 'overview'
-                                    ? 'border-electric-blue text-electric-blue'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                                    ? 'border-accent text-accent'
+                                    : 'border-transparent text-muted-foreground hover:text-foreground'
                                 }`}
                         >
                             Overview
@@ -105,8 +105,8 @@ export function SkillDetailModal({ skill, onClose, onImport, onFork }: SkillDeta
                         <button
                             onClick={() => setActiveTab('ratings')}
                             className={`py-3 px-1 border-b-2 transition-colors ${activeTab === 'ratings'
-                                    ? 'border-electric-blue text-electric-blue'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                                    ? 'border-accent text-accent'
+                                    : 'border-transparent text-muted-foreground hover:text-foreground'
                                 }`}
                         >
                             Ratings ({skill.rating_count || 0})
@@ -120,17 +120,17 @@ export function SkillDetailModal({ skill, onClose, onImport, onFork }: SkillDeta
                         <div className="space-y-6">
                             {/* Description */}
                             <div>
-                                <h3 className="text-sm font-semibold text-gray-700 mb-2">Description</h3>
-                                <p className="text-gray-600">{skill.description}</p>
+                                <h3 className="text-sm font-semibold text-foreground mb-2">Description</h3>
+                                <p className="text-muted-foreground">{skill.description}</p>
                             </div>
 
                             {/* Tags */}
                             {skill.tags && skill.tags.length > 0 && (
                                 <div>
-                                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Tags</h3>
+                                    <h3 className="text-sm font-semibold text-foreground mb-2">Tags</h3>
                                     <div className="flex flex-wrap gap-2">
                                         {skill.tags.map((tag) => (
-                                            <span key={tag} className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full">
+                                            <span key={tag} className="px-3 py-1 bg-surface-elevated text-muted-foreground text-sm rounded-full border border-border">
                                                 {tag}
                                             </span>
                                         ))}
@@ -140,8 +140,8 @@ export function SkillDetailModal({ skill, onClose, onImport, onFork }: SkillDeta
 
                             {/* Category */}
                             <div>
-                                <h3 className="text-sm font-semibold text-gray-700 mb-2">Category</h3>
-                                <span className="inline-flex items-center px-3 py-1 bg-electric-blue/10 text-electric-blue rounded-full text-sm">
+                                <h3 className="text-sm font-semibold text-foreground mb-2">Category</h3>
+                                <span className="inline-flex items-center px-3 py-1 bg-accent/10 text-accent rounded-full text-sm border border-accent/20">
                                     {skill.category}
                                 </span>
                             </div>
@@ -149,15 +149,15 @@ export function SkillDetailModal({ skill, onClose, onImport, onFork }: SkillDeta
                             {/* Version */}
                             {skill.version && (
                                 <div>
-                                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Version</h3>
-                                    <span className="text-gray-600">{skill.version}</span>
+                                    <h3 className="text-sm font-semibold text-foreground mb-2">Version</h3>
+                                    <span className="text-muted-foreground">{skill.version}</span>
                                 </div>
                             )}
 
                             {/* Created */}
                             <div>
-                                <h3 className="text-sm font-semibold text-gray-700 mb-2">Created</h3>
-                                <span className="text-gray-600">{formatDate(skill.created_at)}</span>
+                                <h3 className="text-sm font-semibold text-foreground mb-2">Created</h3>
+                                <span className="text-muted-foreground">{formatDate(skill.created_at)}</span>
                             </div>
                         </div>
                     )}
@@ -178,11 +178,11 @@ export function SkillDetailModal({ skill, onClose, onImport, onFork }: SkillDeta
 
                             {/* Rating form */}
                             {showRatingForm && (
-                                <Card className="p-4 bg-gray-50">
-                                    <h4 className="font-semibold mb-3">Your Rating</h4>
+                                <Card className="p-4 bg-surface-elevated border-border">
+                                    <h4 className="font-semibold text-foreground mb-3">Your Rating</h4>
                                     <div className="space-y-3">
                                         <div>
-                                            <label className="text-sm text-gray-600 mb-2 block">Rating</label>
+                                            <label className="text-sm text-muted-foreground mb-2 block">Rating</label>
                                             <RatingStars
                                                 rating={userRating}
                                                 size="lg"
@@ -191,12 +191,12 @@ export function SkillDetailModal({ skill, onClose, onImport, onFork }: SkillDeta
                                             />
                                         </div>
                                         <div>
-                                            <label className="text-sm text-gray-600 mb-2 block">Review (optional)</label>
+                                            <label className="text-sm text-muted-foreground mb-2 block">Review (optional)</label>
                                             <textarea
                                                 value={userReview}
                                                 onChange={(e) => setUserReview(e.target.value)}
                                                 placeholder="Share your experience with this skill..."
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-electric-blue"
+                                                className="w-full px-3 py-2 bg-surface border border-border rounded-lg resize-none text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent"
                                                 rows={3}
                                             />
                                         </div>
@@ -226,19 +226,19 @@ export function SkillDetailModal({ skill, onClose, onImport, onFork }: SkillDeta
                             {/* Ratings list */}
                             {loadingRatings ? (
                                 <div className="flex items-center justify-center py-8">
-                                    <Loader2 className="w-6 h-6 animate-spin text-electric-blue" />
+                                    <Loader2 className="w-6 h-6 animate-spin text-accent" />
                                 </div>
                             ) : ratings.length === 0 ? (
-                                <p className="text-center text-gray-500 py-8">No ratings yet. Be the first to rate!</p>
+                                <p className="text-center text-muted-foreground py-8">No ratings yet. Be the first to rate!</p>
                             ) : (
                                 <div className="space-y-4">
                                     {ratings.map((rating) => (
-                                        <Card key={rating.id} className="p-4">
+                                        <Card key={rating.id} className="p-4 bg-surface-elevated border-border">
                                             <div className="flex items-start justify-between mb-2">
                                                 <RatingStars rating={rating.rating} size="sm" />
-                                                <span className="text-xs text-gray-500">{formatDate(rating.created_at)}</span>
+                                                <span className="text-xs text-muted-foreground">{formatDate(rating.created_at)}</span>
                                             </div>
-                                            {rating.review && <p className="text-gray-700 text-sm">{rating.review}</p>}
+                                            {rating.review && <p className="text-foreground text-sm">{rating.review}</p>}
                                         </Card>
                                     ))}
                                 </div>
@@ -248,7 +248,7 @@ export function SkillDetailModal({ skill, onClose, onImport, onFork }: SkillDeta
                 </div>
 
                 {/* Footer Actions */}
-                <div className="p-6 border-t border-gray-200 flex gap-3">
+                <div className="p-6 border-t border-border flex gap-3">
                     <Button
                         onClick={() => onImport(skill)}
                         className="flex-1"
