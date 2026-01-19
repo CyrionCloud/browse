@@ -52,11 +52,51 @@ class SkillFork(BaseModel):
     description: Optional[str] = None
 
 
-# Helper: Get user ID from auth token (mock for now)
+# Helper: Get user ID from auth token
 def get_current_user_id(token: str = None) -> str:
-    # TODO: Implement actual JWT decode
-    # For now, return a mock user ID
-    return "00000000-0000-0000-0000-000000000000"
+    """Extract user ID from Supabase JWT token"""
+    # For development: allow fallback to mock user if no token
+    if not token:
+        # Check if dev mode
+        import os
+        if os.getenv("ENABLE_AUTH", "true") == "false":
+            return "00000000-0000-0000-0000-000000000000"
+        raise HTTPException(status_code=401, detail="Authentication required")
+    
+    try:
+        # Verify JWT token and extract user ID
+        import jwt
+        import os
+        
+        # Get JWT secret from environment
+        jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
+        if not jwt_secret:
+            # Fallback to mock for dev
+            logger.warning("SUPABASE_JWT_SECRET not set, using mock user")
+            return "00000000-0000-0000-0000-000000000000"
+        
+        # Decode and verify JWT
+        payload = jwt.decode(
+            token.replace("Bearer ", ""),
+            jwt_secret,
+            algorithms=["HS256"],
+            audience="authenticated"
+        )
+        
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token: no user ID")
+        
+        return user_id
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError as e:
+        logger.error(f"Invalid token: {e}")
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception as e:
+        logger.error(f"Token verification failed: {e}")
+        raise HTTPException(status_code=500, detail="Authentication error")
 
 
 # Endpoints
