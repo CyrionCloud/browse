@@ -4,7 +4,7 @@
 -- Task decompositions table
 CREATE TABLE IF NOT EXISTS task_decompositions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
+    session_id UUID, -- Optional reference to session
     user_id UUID NOT NULL,
     
     -- Original request
@@ -130,16 +130,13 @@ USING (true);
 CREATE OR REPLACE VIEW active_decompositions AS
 SELECT 
     d.*,
-    s.browser_session_id,
-    s.status as session_status,
     COUNT(se.id) FILTER (WHERE se.status = 'completed') as completed_count,
     COUNT(se.id) FILTER (WHERE se.status = 'failed') as failed_count,
     COUNT(se.id) as total_subtasks
 FROM task_decompositions d
-JOIN sessions s ON d.session_id = s.id
 LEFT JOIN subtask_executions se ON d.id = se.decomposition_id
 WHERE d.completed_at IS NULL
-GROUP BY d.id, s.browser_session_id, s.status;
+GROUP BY d.id;
 
 -- Verify table creation
 SELECT 
