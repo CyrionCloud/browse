@@ -354,6 +354,27 @@ async def import_skill(skill_id: str, token: str = None):
         if not skill.data.get("is_public"):
             raise HTTPException(status_code=403, detail="Skill is not public")
         
+        # Ensure user profile exists (for development with mock user_id)
+        try:
+            profile = client.table("profiles").select("id").eq("id", user_id).single().execute()
+            if not profile.data:
+                # Create mock profile
+                client.table("profiles").insert({
+                    "id": user_id,
+                    "email": f"user_{user_id[:8]}@example.com",
+                    "full_name": "Demo User"
+                }).execute()
+        except Exception as e:
+            # Profile might not exist, create it
+            try:
+                client.table("profiles").insert({
+                    "id": user_id,
+                    "email": f"user_{user_id[:8]}@example.com",
+                    "full_name": "Demo User"
+                }).execute()
+            except:
+                pass  # Ignore if already exists or other error
+        
         # Record import (upsert to avoid duplicates)
         data = {
             "skill_id": skill_id,
@@ -383,6 +404,7 @@ async def import_skill(skill_id: str, token: str = None):
     except Exception as e:
         logger.error(f"Failed to import skill: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 
