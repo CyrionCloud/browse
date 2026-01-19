@@ -1,17 +1,22 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import {
   ArrowRight,
-  FileText,
-  Layers,
+  Paperclip,
+  Sparkles,
   User,
   Link2,
   ChevronDown,
   Search,
   AlertTriangle,
+  Layers,
+  X,
 } from 'lucide-react'
+import axios from 'axios'
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
 
 interface ExecutionMode {
   id: string
@@ -25,6 +30,19 @@ interface TaskInputPanelProps {
   onSubmit: () => void
   selectedMode: ExecutionMode
   onModeChange: (mode: ExecutionMode) => void
+}
+
+interface Skill {
+  id: string
+  name: string
+  icon: string
+  category: string
+  description: string
+}
+
+interface SelectedSkill {
+  skill: Skill
+  context?: string
 }
 
 const executionModes: ExecutionMode[] = [
@@ -43,6 +61,51 @@ const quickActions = [
 
 export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onModeChange }: TaskInputPanelProps) {
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false)
+  const [showSkillsMenu, setShowSkillsMenu] = useState(false)
+  const [skills, setSkills] = useState<Skill[]>([])
+  const [selectedSkills, setSelectedSkills] = useState<SelectedSkill[]>([])
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    loadSkills()
+  }, [])
+
+  const loadSkills = async () => {
+    try {
+      const { data } = await axios.get(`${API_BASE}/skills/user/all`)
+      setSkills(data.filter((s: any) => s.is_active))
+    } catch (error) {
+      console.error('Failed to load skills:', error)
+    }
+  }
+
+  const handleSelectSkill = (skill: Skill) => {
+    if (!selectedSkills.find(s => s.skill.id === skill.id)) {
+      setSelectedSkills([...selectedSkills, { skill }])
+    }
+    setShowSkillsMenu(false)
+  }
+
+  const handleRemoveSkill = (skillId: string) => {
+    setSelectedSkills(selectedSkills.filter(s => s.skill.id !== skillId))
+  }
+
+  const handleSkillContextChange = (skillId: string, context: string) => {
+    setSelectedSkills(selectedSkills.map(s =>
+      s.skill.id === skillId ? { ...s, context } : s
+    ))
+  }
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setUploadedFiles([...uploadedFiles, ...Array.from(e.target.files)])
+    }
+  }
+
+  const handleRemoveFile = (index: number) => {
+    setUploadedFiles(uploadedFiles.filter((_, i) => i !== index))
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -71,14 +134,121 @@ export function TaskInputPanel({ value, onChange, onSubmit, selectedMode, onMode
             }}
           />
 
+          {/* Selected Skills Display */}
+          {selectedSkills.length > 0 && (
+            <div className="mb-4 space-y-2">
+              {selectedSkills.map((selectedSkill) => (
+                <div key={selectedSkill.skill.id} className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 text-blue-400 rounded-lg border border-blue-500/30">
+                    <span className="text-sm">{selectedSkill.skill.icon}</span>
+                    <span className="text-sm font-medium">{selectedSkill.skill.name}</span>
+                    <button
+                      onClick={() => handleRemoveSkill(selectedSkill.skill.id)}
+                      className="text-blue-300 hover:text-blue-100"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Add context (optional)..."
+                    value={selectedSkill.context || ''}
+                    onChange={(e) => handleSkillContextChange(selectedSkill.skill.id, e.target.value)}
+                    className="flex-1 bg-surface-elevated text-foreground placeholder-muted-foreground text-sm px-3 py-1.5 rounded-lg border border-border focus:outline-none focus:ring-1 focus:ring-accent"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Uploaded Files Display */}
+          {uploadedFiles.length > 0 && (
+            <div className="mb-4">
+              <div className="flex flex-wrap gap-2">
+                {uploadedFiles.map((file, index) => (
+                  <div key={index} className="flex items-center gap-2 px-3 py-1.5 bg-surface-elevated rounded-lg border border-border">
+                    <Paperclip className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-sm text-foreground">{file.name}</span>
+                    <button
+                      onClick={() => handleRemoveFile(index)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between pt-4 border-t border-border/50">
             <div className="flex items-center gap-1">
-              <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors">
-                <FileText className="h-4 w-4" />
+              {/* File Upload Button (1st icon) */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2 text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors"
+                title="Attach files"
+              >
+                <Paperclip className="h-4 w-4" />
               </button>
-              <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors">
-                <Layers className="h-4 w-4" />
-              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+
+              {/* Skills Selector Button (2nd icon) */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowSkillsMenu(!showSkillsMenu)}
+                  className="p-2 text-muted-foreground hover:text-accent hover:bg-surface-elevated transition-colors"
+                  title="Select skill"
+                >
+                  <Sparkles className="h-4 w-4" />
+                </button>
+
+                {/* Skills Dropdown */}
+                {showSkillsMenu && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setShowSkillsMenu(false)}
+                    />
+                    <div className="absolute bottom-full left-0 mb-2 w-64 bg-surface border border-border rounded-lg shadow-xl max-h-64 overflow-y-auto z-20">
+                      <div className="p-2 border-b border-border">
+                        <p className="text-xs font-medium text-foreground">Select a Skill</p>
+                      </div>
+                      {skills.length > 0 ? (
+                        skills.map((skill) => (
+                          <button
+                            key={skill.id}
+                            onClick={() => handleSelectSkill(skill)}
+                            className="w-full flex items-center gap-2 p-2 hover:bg-surface-elevated transition-colors text-left"
+                            disabled={selectedSkills.some(s => s.skill.id === skill.id)}
+                          >
+                            <span className="text-lg">{skill.icon}</span>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-foreground">{skill.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{skill.category}</p>
+                            </div>
+                            {selectedSkills.some(s => s.skill.id === skill.id) && (
+                              <span className="text-xs text-accent">✓</span>
+                            )}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="p-4 text-center text-sm text-muted-foreground">
+                          No skills available
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Placeholder buttons for future features */}
               <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-surface-elevated transition-colors">
                 <User className="h-4 w-4" />
               </button>
