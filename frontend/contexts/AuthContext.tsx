@@ -43,28 +43,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [])
 
     const signIn = async (email: string, password: string) => {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { error, data } = await supabase.auth.signInWithPassword({
             email,
             password,
         })
         if (error) throw error
-        router.push('/dashboard')
+
+        // Update local state immediately
+        if (data.session) {
+            setSession(data.session)
+            setUser(data.session.user)
+        }
+
+        // Use window.location for reliable redirect (router.push can fail after auth changes)
+        window.location.href = '/dashboard'
     }
 
     const signUp = async (email: string, password: string) => {
-        const { error } = await supabase.auth.signUp({
+        const { error, data } = await supabase.auth.signUp({
             email,
             password,
         })
         if (error) throw error
-        // Auto-login after signup if email confirmation is disabled
-        router.push('/dashboard')
+
+        // If auto-confirm is enabled, we get a session immediately
+        if (data.session) {
+            setSession(data.session)
+            setUser(data.session.user)
+            window.location.href = '/dashboard'
+        } else {
+            // Email confirmation required - stay on page and show message
+            // The user will need to confirm their email
+            throw new Error('Please check your email to confirm your account')
+        }
     }
 
     const signOut = async () => {
         const { error } = await supabase.auth.signOut()
         if (error) throw error
-        router.push('/auth/login')
+        setSession(null)
+        setUser(null)
+        window.location.href = '/auth/login'
     }
 
     return (
