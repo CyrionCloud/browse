@@ -39,7 +39,6 @@ export function Sidebar({ children }: SidebarProps) {
     { name: 'Skills', href: '/dashboard/skills', icon: BookOpen },
     { name: 'Marketplace', href: '/dashboard/marketplace', icon: ShoppingBag },
     { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
-    { name: 'Settings', href: '/dashboard/settings', icon: Settings },
   ]
 
   const handleSignOut = async () => {
