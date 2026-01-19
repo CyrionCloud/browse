@@ -11,8 +11,8 @@ class Settings(BaseSettings):
     
     # Supabase (Support both legacy and standard naming)
     # validation_alias allows it to read from NEXT_PUBLIC_... environment variable
-    SUPABASE_URL: str = Field(validation_alias='NEXT_PUBLIC_SUPABASE_URL')
-    SUPABASE_KEY: str = Field(validation_alias='NEXT_PUBLIC_SUPABASE_ANON_KEY')
+    SUPABASE_URL: Optional[str] = Field(None, validation_alias='NEXT_PUBLIC_SUPABASE_URL')
+    SUPABASE_KEY: Optional[str] = Field(None, validation_alias='NEXT_PUBLIC_SUPABASE_ANON_KEY')
     
     OPENAI_API_KEY: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
