@@ -383,14 +383,24 @@ async def import_skill(skill_id: str, token: str = None):
             except:
                 pass  # Ignore if already exists or other error
         
-        # Record import (upsert to avoid duplicates)
+        # Check if already imported
+        existing = client.table("skill_imports").select("*").eq("skill_id", skill_id).eq("user_id", user_id).execute()
+        
+        if existing.data:
+            # Already imported, just return success
+            return {
+                "message": "Skill already imported",
+                "skill": skill.data
+            }
+        
+        # Record import
         data = {
             "skill_id": skill_id,
             "user_id": user_id,
             "is_active": True
         }
         
-        res = client.table("skill_imports").upsert(data).execute()
+        res = client.table("skill_imports").insert(data).execute()
         
         # Also add to user_skills for actual usage (if table exists)
         try:
@@ -415,6 +425,41 @@ async def import_skill(skill_id: str, token: str = None):
         raise
     except Exception as e:
         logger.error(f"Failed to import skill: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/user/all")
+async def get_user_skills(token: str = None):
+    """Get all skills belonging to the user (created, forked, imported)"""
+    try:
+        user_id = get_current_user_id(token)
+        client = db.get_client()
+        
+        # Get skills authored by user
+        authored = client.table("skills").select("*").eq("author_user_id", user_id).execute()
+        
+        # Get imported skills
+        imports_res = client.table("skill_imports").select("skill_id").eq("user_id", user_id).eq("is_active", True).execute()
+        imported_ids = [imp["skill_id"] for imp in imports_res.data] if imports_res.data else []
+        
+        imported_skills = []
+        if imported_ids:
+            imported_skills_res = client.table("skills").select("*").in_("id", imported_ids).execute()
+            imported_skills = imported_skills_res.data if imported_skills_res.data else []
+        
+        # Combine and deduplicate
+        all_skills = authored.data if authored.data else []
+        
+        # Add imported skills that aren't already in authored
+        authored_ids = {skill["id"] for skill in all_skills}
+        for skill in imported_skills:
+            if skill["id"] not in authored_ids:
+                all_skills.append(skill)
+        
+        return all_skills
+        
+    except Exception as e:
+        logger.error(f"Failed to get user skills: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
