@@ -525,5 +525,37 @@ async def update_skill(skill_id: str, skill_data: SkillUpdate, token: str = None
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.delete("/{skill_id}")
+async def delete_skill(skill_id: str, token: str = None):
+    """Delete a skill (only if you own it)"""
+    try:
+        user_id = get_current_user_id(token)
+        client = db.get_client()
+        
+        # Get the skill and verify ownership
+        skill = client.table("skills").select("*").eq("id", skill_id).single().execute()
+        
+        if not skill.data:
+            raise HTTPException(status_code=404, detail="Skill not found")
+        
+        # Check if user owns this skill
+        if skill.data.get("author_user_id") != user_id:
+            raise HTTPException(status_code=403, detail="You can only delete your own skills")
+        
+        # Soft delete: mark as inactive instead of hard delete
+        client.table("skills").update({"is_active": False}).eq("id", skill_id).execute()
+        
+        return {
+            "message": "Skill deleted successfully",
+            "skill_id": skill_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete skill: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 
