@@ -4,7 +4,8 @@ import type { NextRequest } from 'next/server'
 const publicRoutes = ['/auth/login', '/auth/signup', '/']
 const authRoutes = ['/auth/login', '/auth/signup']
 
-export function middleware(request: NextRequest) {
+// Export as proxy function for Next.js 16
+export function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl
 
     // Get session from cookie (Supabase stores it there)
