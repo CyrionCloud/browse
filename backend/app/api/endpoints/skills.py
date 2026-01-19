@@ -34,6 +34,8 @@ class SkillCreate(BaseModel):
 class SkillUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    category: Optional[str] = None
+    icon: Optional[str] = None
     prompt_template: Optional[str] = None
     default_config: Optional[dict] = None
     tags: Optional[List[str]] = None
@@ -460,6 +462,66 @@ async def get_user_skills(token: str = None):
         
     except Exception as e:
         logger.error(f"Failed to get user skills: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/{skill_id}")
+async def update_skill(skill_id: str, skill_data: SkillUpdate, token: str = None):
+    """Update a skill (only if you own it)"""
+    try:
+        user_id = get_current_user_id(token)
+        client = db.get_client()
+        
+        # Get the skill and verify ownership
+        skill = client.table("skills").select("*").eq("id", skill_id).single().execute()
+        
+        if not skill.data:
+            raise HTTPException(status_code=404, detail="Skill not found")
+        
+        # Check if user owns this skill
+        if skill.data.get("author_user_id") != user_id:
+            raise HTTPException(status_code=403, detail="You can only edit your own skills")
+        
+        # Prepare update data (only update provided fields)
+        update_data = {}
+        if skill_data.name is not None:
+            update_data["name"] = skill_data.name
+            # Update slug if name changed
+            import re
+            import time
+            base_slug = re.sub(r'[^a-z0-9-]', '', skill_data.name.lower().replace(" ", "-"))
+            update_data["slug"] = f"{base_slug}-{int(time.time())}"
+        
+        if skill_data.description is not None:
+            update_data["description"] = skill_data.description
+        if skill_data.category is not None:
+            update_data["category"] = skill_data.category
+        if skill_data.icon is not None:
+            update_data["icon"] = skill_data.icon
+        if skill_data.prompt_template is not None:
+            update_data["prompt_template"] = skill_data.prompt_template
+        if skill_data.default_config is not None:
+            update_data["default_config"] = skill_data.default_config
+        if skill_data.is_public is not None:
+            update_data["is_public"] = skill_data.is_public
+        if skill_data.tags is not None:
+            update_data["tags"] = skill_data.tags
+        
+        # Update the skill
+        res = client.table("skills").update(update_data).eq("id", skill_id).execute()
+        
+        if not res.data:
+            raise HTTPException(status_code=500, detail="Failed to update skill")
+        
+        return {
+            "message": "Skill updated successfully",
+            "skill": res.data[0]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update skill: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
