@@ -52,58 +52,11 @@ class SkillFork(BaseModel):
     description: Optional[str] = None
 
 
-# Helper: Get user ID from auth token
+# Helper: Get user ID from auth token (mock for development)
 def get_current_user_id(token: str = None) -> str:
-    """Extract user ID from Supabase token using Supabase SDK"""
-    # For development: allow fallback to mock user if no token
-    if not token:
-        import os
-        if os.getenv("ENABLE_AUTH", "true") == "false":
-            return "00000000-0000-0000-0000-000000000000"
-        raise HTTPException(status_code=401, detail="Authentication required")
-    
-    try:
-        from supabase import create_client
-        import os
-        
-        # Get Supabase credentials
-        supabase_url = os.getenv("SUPABASE_URL")
-        supabase_key = os.getenv("SUPABASE_KEY")  # Service role or anon key
-        
-        if not supabase_url or not supabase_key:
-            # Fallback to mock for dev
-            logger.warning("SUPABASE_URL or SUPABASE_KEY not set, using mock user")
-            return "00000000-0000-0000-0000-000000000000"
-        
-        # Create Supabase client
-        supabase_client = create_client(supabase_url, supabase_key)
-        
-        # Verify token and get user
-        # Remove "Bearer " prefix if present
-        clean_token = token.replace("Bearer ", "").strip()
-        
-        # Use Supabase SDK to verify token and get user
-        user_response = supabase_client.auth.get_user(clean_token)
-        
-        if not user_response or not user_response.user:
-            raise HTTPException(status_code=401, detail="Invalid token: user not found")
-        
-        user_id = user_response.user.id
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token: no user ID")
-        
-        return user_id
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Token verification failed: {e}")
-        # Fallback to mock user for development
-        import os
-        if os.getenv("ENABLE_AUTH", "true") == "false":
-            logger.warning("Auth failed, using mock user (dev mode)")
-            return "00000000-0000-0000-0000-000000000000"
-        raise HTTPException(status_code=401, detail="Authentication error")
+    """Get user ID - using mock user for development"""
+    # Always return mock user ID for now
+    return "00000000-0000-0000-0000-000000000000"
 
 
 # Endpoints
