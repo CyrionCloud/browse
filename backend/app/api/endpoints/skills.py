@@ -295,11 +295,19 @@ async def fork_skill(skill_id: str, fork_data: SkillFork, token: str = None):
             raise HTTPException(status_code=404, detail="Skill not found")
         
         # Create forked copy
+        import re
+        import time
+        
+        # Generate valid slug: lowercase, alphanumeric and hyphens only
+        base_slug = re.sub(r'[^a-z0-9-]', '', fork_data.name.lower().replace(" ", "-"))
+        # Add timestamp to ensure uniqueness
+        unique_slug = f"{base_slug}-fork-{int(time.time())}"
+        
         forked_skill = {
             **original.data,
             "id": None,  # Will generate new ID
             "name": fork_data.name,
-            "slug": fork_data.name.lower().replace(" ", "-") + f"-fork-{user_id[:8]}",
+            "slug": unique_slug,
             "description": fork_data.description or original.data.get("description"),
             "author_user_id": user_id,
             "forked_from_id": skill_id,
@@ -384,15 +392,19 @@ async def import_skill(skill_id: str, token: str = None):
         
         res = client.table("skill_imports").upsert(data).execute()
         
-        # Also add to user_skills for actual usage
-        user_skill_data = {
-            "user_id": user_id,
-            "skill_id": skill_id,
-            "enabled": True,
-            "custom_config": skill.data.get("default_config", {})
-        }
-        
-        client.table("user_skills").upsert(user_skill_data).execute()
+        # Also add to user_skills for actual usage (if table exists)
+        try:
+            user_skill_data = {
+                "user_id": user_id,
+                "skill_id": skill_id,
+                "enabled": True,
+                "custom_config": skill.data.get("default_config", {})
+            }
+            
+            client.table("user_skills").upsert(user_skill_data).execute()
+        except Exception as e:
+            # user_skills table might not exist, ignore
+            logger.debug(f"Could not add to user_skills: {e}")
         
         return {
             "message": "Skill imported successfully",
