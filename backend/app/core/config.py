@@ -9,10 +9,9 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "AutoBrowse"
     CORS_ORIGINS: list[str] = ["*"]
     
-    # Supabase (Support both legacy and standard naming)
-    # validation_alias allows it to read from NEXT_PUBLIC_... environment variable
-    SUPABASE_URL: str = Field(validation_alias='NEXT_PUBLIC_SUPABASE_URL')
-    SUPABASE_KEY: str = Field(validation_alias='NEXT_PUBLIC_SUPABASE_ANON_KEY')
+    # Supabase (Support both legacy NEXT_PUBLIC and standard naming)
+    SUPABASE_URL: str = Field(validation_alias='NEXT_PUBLIC_SUPABASE_URL', default_factory=lambda: os.getenv('SUPABASE_URL', ''))
+    SUPABASE_KEY: str = Field(validation_alias='NEXT_PUBLIC_SUPABASE_ANON_KEY', default_factory=lambda: os.getenv('SUPABASE_KEY', ''))
     
     OPENAI_API_KEY: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
