@@ -97,7 +97,7 @@ export function ChatPanel({
     }
 
     const handleRemoveSkill = (skillId: string) => {
-        setSelected Skills(selectedSkills.filter(s => s.skill.id !== skillId))
+        setSelectedSkills(selectedSkills.filter(s => s.skill.id !== skillId))
     }
 
     const handleSkillContextChange = (skillId: string, context: string) => {
