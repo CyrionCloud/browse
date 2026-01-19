@@ -1,39 +1,29 @@
-import { NextResponse, type NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
-export async function proxy(request: NextRequest) {
-  const pathname = request.nextUrl.pathname
-  const isDashboardRoute = pathname.startsWith('/dashboard')
-  const isAuthRoute = pathname === '/login' ||
-                       pathname === '/signup' ||
-                       pathname === '/forgot-password' ||
-                       pathname === '/reset-password'
+const publicRoutes = ['/auth/login', '/auth/signup', '/']
+const authRoutes = ['/auth/login', '/auth/signup']
 
-  const cookies = request.cookies.getAll()
-  const hasAuthCookie = cookies.some(cookie =>
-    cookie.name.includes('-auth-token') ||
-    cookie.name.includes('supabase-auth-token')
-  )
+export function middleware(request: NextRequest) {
+    const { pathname } = request.nextUrl
 
-  if (isDashboardRoute && !hasAuthCookie) {
-    const redirectUrl = new URL('/login', request.url)
-    redirectUrl.searchParams.set('redirectTo', pathname)
-    return NextResponse.redirect(redirectUrl)
-  }
+    // Get session from cookie (Supabase stores it there)
+    const sessionCookie = request.cookies.get('sb-pwebxxmyksequxxwfdar-auth-token')
+    const hasSession = !!sessionCookie
 
-  if (isAuthRoute && hasAuthCookie) {
-    const redirectTo = request.nextUrl.searchParams.get('redirectTo') || '/dashboard'
-    return NextResponse.redirect(new URL(redirectTo, request.url))
-  }
+    // If user is on auth page and has session, redirect to dashboard
+    if (authRoutes.includes(pathname) && hasSession) {
+        return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
 
-  return NextResponse.next()
+    // If user is trying to access protected route and has no session, redirect to login
+    if (!publicRoutes.includes(pathname) && !pathname.startsWith('/auth') && !hasSession) {
+        return NextResponse.redirect(new URL('/auth/login', request.url))
+    }
+
+    return NextResponse.next()
 }
 
 export const config = {
-  matcher: [
-    '/dashboard/:path*',
-    '/login',
-    '/signup',
-    '/forgot-password',
-    '/reset-password',
-  ],
+    matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 }
