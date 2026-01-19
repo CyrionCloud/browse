@@ -6819,6 +6819,18 @@ dev = ["tox"]
 docs = ["sphinx"]
 
 [[package]]
+name = "python-multipart"
+version = "0.0.21"
+description = "A streaming multipart parser for Python"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "python_multipart-0.0.21-py3-none-any.whl", hash = "sha256:cf7a6713e01c87aa35387f4774e812c4361150938d20d232800f75ffcf266090"},
+    {file = "python_multipart-0.0.21.tar.gz", hash = "sha256:7137ebd4d3bbf70ea1622998f902b97a29434a9e8dc40eb203bbcf7c2a2cba92"},
+]
+
+[[package]]
 name = "python-socketio"
 version = "5.16.0"
 description = "Socket.IO server and client for Python"
@@ -8457,4 +8469,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "660af78fc577ff68bd83f1848201fde9ce1b98b65f7a777bc9add90214ffaa13"
+content-hash = "8867b434708f2ebc608cb41643782e28529786dbbb35a5a69a2ed8e3c8421f23"

@@ -19,6 +19,7 @@ langchain-anthropic = "^0.3.3"
 langchain-openai = "^0.3.0"
 playwright = "^1.42.0"
 pyjwt = "^2.10.1"
+python-multipart = "^0.0.21"
 
 [build-system]
 requires = ["poetry-core"]
