@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  reactStrictMode: false,  // Disable to prevent double API calls in dev
   images: {
     unoptimized: true,
   },
@@ -29,3 +30,4 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+

@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { TaskInputPanel } from './TaskInputPanel'
 import { useAuth } from '@/hooks/useAuth'
 import { useAppStore } from '@/store/useAppStore'
 import { sessionsApi } from '@/lib/api'
 import { PageLoader } from '@/components/LoadingState'
-import { useRouter } from 'next/navigation'
 
 interface ExecutionMode {
   id: string
@@ -22,26 +22,30 @@ const executionModes: ExecutionMode[] = [
 ]
 
 export default function DashboardPage() {
-  const { user, initialized } = useAuth()
   const router = useRouter()
+  const { user, initialized } = useAuth()
   const {
-    setCurrentSession,
     addSession,
+    setCurrentSession,
     setMessages,
     setLoading,
     isLoading,
-    agentConfig,  // Use config from store
+    agentConfig,
   } = useAppStore()
   const [taskInput, setTaskInput] = useState('')
   const [selectedMode, setSelectedMode] = useState<ExecutionMode>(executionModes[0])
 
-  const handleCreateSession = async () => {
-    if (!taskInput.trim() || isLoading) return
+  // Guard against double submissions (React StrictMode, fast double-clicks)
+  const isSubmittingRef = useRef(false)
 
+  const handleCreateSession = async () => {
+    // Prevent double submission
+    if (!taskInput.trim() || isLoading || isSubmittingRef.current) return
+
+    isSubmittingRef.current = true
     setLoading(true)
 
     try {
-      // Use agentConfig from store (set via Settings page)
       const session = await sessionsApi.create(taskInput.trim(), {
         ...agentConfig,
         enabledSkills: [selectedMode.id],
@@ -60,6 +64,10 @@ export default function DashboardPage() {
       alert(error.message || 'Failed to create session')
     } finally {
       setLoading(false)
+      // Reset after a delay to prevent rapid re-submissions
+      setTimeout(() => {
+        isSubmittingRef.current = false
+      }, 1000)
     }
   }
 
