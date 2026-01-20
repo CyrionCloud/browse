@@ -16,6 +16,36 @@ running_browsers: dict[str, Browser] = {}
 # Store stop flags to signal agents to stop
 stop_flags: dict[str, bool] = {}
 
+
+def get_active_page(browser: Browser):
+    """
+    Get the most recently active/opened page from all browser contexts.
+    This fixes the issue where context.pages[0] becomes stale when new tabs are opened.
+    """
+    if not browser or not hasattr(browser, 'playwright_browser') or not browser.playwright_browser:
+        return None
+    
+    all_pages = []
+    try:
+        for context in browser.playwright_browser.contexts:
+            for page in context.pages:
+                try:
+                    # Check if page is still valid and not closed
+                    if not page.is_closed():
+                        all_pages.append(page)
+                except:
+                    pass
+    except Exception as e:
+        print(f"   ⚠ Error enumerating pages: {e}")
+        return None
+    
+    if not all_pages:
+        return None
+    
+    # Return the LAST page (most recently opened/active)
+    # This correctly follows new tabs opened by the agent
+    return all_pages[-1]
+
 def get_running_agent(session_id: str) -> Agent | None:
     """Get a running agent by session ID."""
     return running_agents.get(session_id)
@@ -194,24 +224,18 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
                 screenshot_base64 = None
                 page = None
                 
-                # Find the page - try multiple methods
-                if browser and hasattr(browser, 'playwright_browser') and browser.playwright_browser:
-                    try:
-                        contexts = browser.playwright_browser.contexts
-                        if contexts and len(contexts) > 0:
-                            context = contexts[0]
-                            if context.pages and len(context.pages) > 0:
-                                page = context.pages[0]
-                                print(f"   ✓ Found page via browser.playwright_browser (URL: {page.url})")
-                    except Exception as e:
-                        print(f"   ✗ Browser context access failed: {e}")
-                
-                # Fallback to agent paths
-                if not page and agent_instance:
-                    if hasattr(agent_instance, 'browser_context') and agent_instance.browser_context:
+                # Use improved page discovery - follows active tab
+                page = get_active_page(browser)
+                if page:
+                    print(f"   ✓ Found active page (URL: {page.url})")
+                else:
+                    # Fallback to agent's browser_context if available
+                    if agent_instance and hasattr(agent_instance, 'browser_context') and agent_instance.browser_context:
                         try:
-                            if agent_instance.browser_context.pages:
-                                page = agent_instance.browser_context.pages[0]
+                            pages = agent_instance.browser_context.pages
+                            if pages:
+                                # Get last page (most recent)
+                                page = pages[-1] if not pages[-1].is_closed() else pages[0]
                                 print(f"   ✓ Found page via agent.browser_context")
                         except:
                             pass
@@ -219,30 +243,42 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
                 if page:
                     # Strategy 1: Try immediate screenshot first
                     try:
-                        screenshot_bytes = await page.screenshot(timeout=2000)
+                        screenshot_bytes = await page.screenshot(timeout=3000)
                         screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
                         print(f"   ✓ Screenshot captured immediately ({len(screenshot_bytes)} bytes)")
                     except Exception as immediate_err:
                         print(f"   ⚠ Immediate screenshot failed: {immediate_err}")
                         
-                        # Strategy 2: Wait for network idle then capture
-                        try:
-                            await page.wait_for_load_state('networkidle', timeout=5000)
-                            screenshot_bytes = await page.screenshot(timeout=2000)
-                            screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
-                            print(f"   ✓ Screenshot captured after networkidle ({len(screenshot_bytes)} bytes)")
-                        except Exception as networkidle_err:
-                            print(f"   ⚠ Networkidle screenshot failed: {networkidle_err}")
-                            
-                            # Strategy 3: Wait for load event then capture  
+                        # Strategy 2: Refresh page reference and retry
+                        await asyncio.sleep(0.3)
+                        page = get_active_page(browser)
+                        if page:
                             try:
-                                await page.wait_for_load_state('load', timeout=5000)
-                                await asyncio.sleep(0.5)  # Extra render time
-                                screenshot_bytes = await page.screenshot(timeout=2000)
+                                screenshot_bytes = await page.screenshot(timeout=3000)
                                 screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
-                                print(f"   ✓ Screenshot captured after load+delay ({len(screenshot_bytes)} bytes)")
-                            except Exception as load_err:
-                                print(f"   ✗ All screenshot strategies failed: {load_err}")
+                                print(f"   ✓ Screenshot captured after page refresh ({len(screenshot_bytes)} bytes)")
+                            except Exception as retry_err:
+                                print(f"   ⚠ Retry screenshot failed: {retry_err}")
+                        
+                        # Strategy 3: Wait for network idle then capture
+                        if not screenshot_base64 and page:
+                            try:
+                                await page.wait_for_load_state('networkidle', timeout=5000)
+                                screenshot_bytes = await page.screenshot(timeout=3000)
+                                screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
+                                print(f"   ✓ Screenshot captured after networkidle ({len(screenshot_bytes)} bytes)")
+                            except Exception as networkidle_err:
+                                print(f"   ⚠ Networkidle screenshot failed: {networkidle_err}")
+                                
+                                # Strategy 4: Wait for load event then capture  
+                                try:
+                                    await page.wait_for_load_state('load', timeout=5000)
+                                    await asyncio.sleep(0.5)
+                                    screenshot_bytes = await page.screenshot(timeout=3000)
+                                    screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
+                                    print(f"   ✓ Screenshot captured after load+delay ({len(screenshot_bytes)} bytes)")
+                                except Exception as load_err:
+                                    print(f"   ✗ All screenshot strategies failed: {load_err}")
                     
                     # Send screenshot if we got one
                     if screenshot_base64:
@@ -254,7 +290,7 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
                     else:
                         print(f"   ✗ No screenshot data captured for step {step_count}")
                 else:
-                    print(f"   ✗ Could not find page object for screenshot")
+                    print(f"   ✗ Could not find any active page for screenshot")
                     
             except Exception as e:
                 print(f"   ✗ Screenshot capture error: {e}")
