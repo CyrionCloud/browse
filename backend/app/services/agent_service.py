@@ -69,72 +69,129 @@ async def intervene_agent(session_id: str, message: str) -> bool:
     return False
 
 
-async def stream_screenshots(session_id: str, browser: Browser, interval: float = 0.5):
+async def stream_cdp_screencast(session_id: str, browser: Browser):
     """
-    Continuously stream screenshots from the browser at ~2fps.
-    This provides a smooth real-time view instead of per-action static screenshots.
+    Stream browser view using CDP's native screencast.
+    This is more efficient than screenshot polling - Chrome encodes video frames natively.
     """
-    print(f"🎥 Starting live screenshot streaming for session {session_id} at {1/interval}fps")
+    print(f"🎥 Starting CDP screencast for session {session_id}")
+    
+    try:
+        page = get_active_page(browser)
+        if not page:
+            print(f"   ✗ No page found for CDP screencast")
+            return
+        
+        # Create CDP session
+        cdp = await page.context.new_cdp_session(page)
+        
+        frame_count = 0
+        
+        # Handle screencast frames
+        async def handle_frame(params):
+            nonlocal frame_count
+            frame_count += 1
+            
+            try:
+                # Send frame to frontend
+                await notify_session(session_id, "screenshot_stream", {
+                    "sessionId": session_id,
+                    "screenshot": params["data"],
+                    "format": "jpeg",
+                    "frameId": frame_count
+                })
+                
+                # Acknowledge frame to continue receiving
+                await cdp.send("Page.screencastFrameAck", {
+                    "sessionId": params["sessionId"]
+                })
+            except Exception as e:
+                print(f"   ⚠ Frame send error: {e}")
+        
+        # Register frame handler
+        cdp.on("Page.screencastFrame", lambda params: asyncio.create_task(handle_frame(params)))
+        
+        # Start screencast with optimized settings
+        await cdp.send("Page.startScreencast", {
+            "format": "jpeg",
+            "quality": 60,  # Balance quality vs bandwidth
+            "maxWidth": 1280,
+            "maxHeight": 720,
+            "everyNthFrame": 2  # ~30fps down to ~15fps
+        })
+        
+        print(f"   ✓ CDP screencast started")
+        
+        # Keep running until stop flag or browser disconnect
+        while not should_stop(session_id) and session_id in running_browsers:
+            # Check browser health
+            try:
+                if not browser.playwright_browser or not browser.playwright_browser.is_connected():
+                    print(f"   ✗ Browser disconnected during screencast")
+                    break
+            except:
+                break
+            
+            await asyncio.sleep(0.5)
+        
+        # Stop screencast
+        try:
+            await cdp.send("Page.stopScreencast")
+            print(f"   ✓ CDP screencast stopped after {frame_count} frames")
+        except:
+            pass
+        
+    except Exception as e:
+        print(f"   ✗ CDP screencast error: {e}")
+        # Fallback to screenshot polling
+        print(f"   ↩ Falling back to screenshot polling...")
+        await stream_screenshots_fallback(session_id, browser)
+
+
+async def stream_screenshots_fallback(session_id: str, browser: Browser, interval: float = 0.5):
+    """
+    Fallback screenshot streaming when CDP screencast fails.
+    """
+    print(f"🎥 Using fallback screenshot streaming for session {session_id}")
     last_screenshot_hash = None
     consecutive_failures = 0
     max_failures = 10
     
     while not should_stop(session_id) and session_id in running_browsers:
         try:
-            # Check if browser is still connected/healthy
+            # Check browser health
             if not browser or not hasattr(browser, 'playwright_browser') or not browser.playwright_browser:
-                print(f"   ✗ Browser object invalid for session {session_id}")
-                await notify_session(session_id, "error", {
-                    "sessionId": session_id,
-                    "error": "Browser disconnected"
-                })
                 break
             
-            # Check if browser is still connected
             try:
                 if not browser.playwright_browser.is_connected():
-                    print(f"   ✗ Browser crashed/disconnected for session {session_id}")
-                    await notify_session(session_id, "error", {
-                        "sessionId": session_id,
-                        "error": "Browser crashed or disconnected"
-                    })
                     break
-            except Exception:
-                # is_connected() failed, browser likely crashed
-                print(f"   ✗ Browser health check failed for session {session_id}")
+            except:
                 break
             
             page = get_active_page(browser)
             if page:
                 try:
-                    # Capture screenshot with reduced quality for faster streaming
                     screenshot_bytes = await page.screenshot(
                         timeout=2000,
                         type='jpeg',
-                        quality=70  # Reduced quality for performance
+                        quality=60
                     )
                     
-                    # Simple hash to avoid sending duplicate frames
-                    screenshot_hash = hash(screenshot_bytes[:1000])  # Hash first 1KB
+                    screenshot_hash = hash(screenshot_bytes[:1000])
                     
                     if screenshot_hash != last_screenshot_hash:
                         screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
                         await notify_session(session_id, "screenshot_stream", {
                             "sessionId": session_id,
                             "screenshot": screenshot_base64,
-                            "format": "jpeg",
-                            "url": page.url
+                            "format": "jpeg"
                         })
                         last_screenshot_hash = screenshot_hash
                         consecutive_failures = 0
                 except Exception as e:
                     consecutive_failures += 1
                     if consecutive_failures >= max_failures:
-                        print(f"   ✗ Too many streaming failures, stopping: {e}")
-                        await notify_session(session_id, "error", {
-                            "sessionId": session_id,
-                            "error": f"Screenshot streaming failed: {str(e)[:100]}"
-                        })
                         break
             else:
                 consecutive_failures += 1
@@ -142,24 +199,24 @@ async def stream_screenshots(session_id: str, browser: Browser, interval: float 
         except Exception as e:
             consecutive_failures += 1
             if consecutive_failures >= max_failures:
-                print(f"   ✗ Streaming stopped due to errors: {e}")
                 break
         
         await asyncio.sleep(interval)
     
-    print(f"🎥 Screenshot streaming stopped for session {session_id}")
+    print(f"🎥 Fallback streaming stopped for session {session_id}")
 
 
 def start_streaming(session_id: str, browser: Browser):
-    """Start the background screenshot streaming task."""
+    """Start the background CDP screencast streaming task."""
     if session_id not in streaming_tasks:
-        task = asyncio.create_task(stream_screenshots(session_id, browser, interval=0.5))
+        # Use CDP screencast (with fallback to screenshots)
+        task = asyncio.create_task(stream_cdp_screencast(session_id, browser))
         streaming_tasks[session_id] = task
-        print(f"🎥 Streaming task started for session {session_id}")
+        print(f"🎥 CDP streaming task started for session {session_id}")
 
 
 async def stop_streaming(session_id: str):
-    """Stop the background screenshot streaming task."""
+    """Stop the background streaming task."""
     if session_id in streaming_tasks:
         task = streaming_tasks.pop(session_id)
         task.cancel()
