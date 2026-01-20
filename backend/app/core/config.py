@@ -14,6 +14,12 @@ class Settings(BaseSettings):
         "http://localhost:3001",
     ]
     
+    # Browser Mode: 'direct' (existing) or 'container' (Docker noVNC)
+    # 'direct' - Use local Playwright browser (current behavior)
+    # 'container' - Use Docker container with noVNC for embedded view
+    BROWSER_MODE: str = "direct"  # Default to existing behavior
+    BROWSER_CONTAINER_IMAGE: str = "autobrowse/browser:latest"
+    
     # Supabase Configuration - support multiple env var names
     SUPABASE_URL: Optional[str] = Field(None, validation_alias='NEXT_PUBLIC_SUPABASE_URL')
     
