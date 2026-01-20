@@ -81,6 +81,29 @@ async def stream_screenshots(session_id: str, browser: Browser, interval: float 
     
     while not should_stop(session_id) and session_id in running_browsers:
         try:
+            # Check if browser is still connected/healthy
+            if not browser or not hasattr(browser, 'playwright_browser') or not browser.playwright_browser:
+                print(f"   ✗ Browser object invalid for session {session_id}")
+                await notify_session(session_id, "error", {
+                    "sessionId": session_id,
+                    "error": "Browser disconnected"
+                })
+                break
+            
+            # Check if browser is still connected
+            try:
+                if not browser.playwright_browser.is_connected():
+                    print(f"   ✗ Browser crashed/disconnected for session {session_id}")
+                    await notify_session(session_id, "error", {
+                        "sessionId": session_id,
+                        "error": "Browser crashed or disconnected"
+                    })
+                    break
+            except Exception:
+                # is_connected() failed, browser likely crashed
+                print(f"   ✗ Browser health check failed for session {session_id}")
+                break
+            
             page = get_active_page(browser)
             if page:
                 try:
@@ -108,6 +131,10 @@ async def stream_screenshots(session_id: str, browser: Browser, interval: float 
                     consecutive_failures += 1
                     if consecutive_failures >= max_failures:
                         print(f"   ✗ Too many streaming failures, stopping: {e}")
+                        await notify_session(session_id, "error", {
+                            "sessionId": session_id,
+                            "error": f"Screenshot streaming failed: {str(e)[:100]}"
+                        })
                         break
             else:
                 consecutive_failures += 1

@@ -7,7 +7,12 @@ from typing import List, Optional
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "AutoBrowse"
-    CORS_ORIGINS: list[str] = ["*"]
+    CORS_ORIGINS: list[str] = [
+        "*",
+        "https://239bcc511834.ngrok-free.app",
+        "http://localhost:3000",
+        "http://localhost:3001",
+    ]
     
     # Supabase Configuration - support multiple env var names
     SUPABASE_URL: Optional[str] = Field(None, validation_alias='NEXT_PUBLIC_SUPABASE_URL')
