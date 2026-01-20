@@ -156,7 +156,8 @@ export const useAppStore = create<AppState>()(
       name: 'app-storage',
       partialize: (state) => ({
         agentConfig: state.agentConfig,
-        sessionData: state.sessionData,
+        // Don't persist sessionData - screenshots are too large and cause QuotaExceededError
+        // sessionData: state.sessionData,
         // user: state.user // optionally persist user
       }),
     }

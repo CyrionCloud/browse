@@ -463,22 +463,39 @@ async def stop_agent_task(session_id: str):
     """
     Stop a running agent task, close browser, and cleanup resources.
     """
-    print(f"Stop requested for session {session_id}")
+    print(f"🛑 Stop requested for session {session_id}")
     
     # Set stop flag for the agent
     stop_flags[session_id] = True
     
-    # Stop screenshot streaming
+    # Stop screenshot streaming first
     await stop_streaming(session_id)
     
-    # Try to close the browser
+    # Forcefully close the browser and all contexts
     browser = running_browsers.get(session_id)
     if browser:
         try:
+            # First try to close all contexts
+            if hasattr(browser, 'playwright_browser') and browser.playwright_browser:
+                try:
+                    for context in browser.playwright_browser.contexts:
+                        await context.close()
+                    print(f"   ✓ All browser contexts closed for session {session_id}")
+                except Exception as ctx_err:
+                    print(f"   ⚠ Context close error: {ctx_err}")
+            
+            # Then close the browser itself
             await browser.close()
-            print(f"Browser closed for stopped session {session_id}")
+            print(f"   ✓ Browser closed for stopped session {session_id}")
         except Exception as e:
-            print(f"Error closing browser for session {session_id}: {e}")
+            print(f"   ⚠ Error closing browser for session {session_id}: {e}")
+            # Try force close via playwright_browser
+            try:
+                if hasattr(browser, 'playwright_browser') and browser.playwright_browser:
+                    await browser.playwright_browser.close()
+                    print(f"   ✓ Playwright browser force-closed")
+            except:
+                pass
         finally:
             if session_id in running_browsers:
                 del running_browsers[session_id]
@@ -486,14 +503,24 @@ async def stop_agent_task(session_id: str):
     # Cleanup agent reference
     if session_id in running_agents:
         del running_agents[session_id]
-        print(f"Agent removed for stopped session {session_id}")
+        print(f"   ✓ Agent removed for stopped session {session_id}")
     
     # Cleanup stop flag
     if session_id in stop_flags:
         del stop_flags[session_id]
+    
+    # Update session status in DB
+    try:
+        await db.update_session_status(session_id, "cancelled", {
+            "completed_at": "now()"
+        })
+    except Exception as e:
+        print(f"   ⚠ DB update error: {e}")
     
     # Notify frontend
     await notify_session(session_id, "session_stopped", {
         "sessionId": session_id,
         "message": "Session stopped by user"
     })
+    print(f"🛑 Session {session_id} fully stopped")
+
