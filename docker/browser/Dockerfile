@@ -7,6 +7,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
     # Virtual framebuffer for headless display
     xvfb \
+    # X11 utilities for display detection
+    x11-xserver-utils \
     # VNC server
     x11vnc \
     # noVNC web client and dependencies
@@ -60,8 +62,10 @@ ENV SCREEN_DEPTH=24
 RUN mkdir -p /opt/novnc \
     && ln -s /usr/share/novnc/vnc.html /usr/share/novnc/index.html
 
-# Copy supervisor configuration
+# Copy supervisor configuration and Chrome startup script
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY start-chrome.sh /usr/local/bin/start-chrome.sh
+RUN chmod +x /usr/local/bin/start-chrome.sh
 
 # Create a non-root user for Chrome (security)
 RUN useradd -m -s /bin/bash chrome \

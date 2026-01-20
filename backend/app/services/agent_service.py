@@ -1,11 +1,14 @@
 import asyncio
 import base64
+import cv2
+import numpy as np
 from browser_use import Agent, Browser, BrowserConfig
 from langchain_openai import ChatOpenAI
 from app.core.config import settings
 from app.services.websocket import notify_session
 from app.services.database import db
 from app.services.self_healing_service import SelfHealingService
+from app.services.owl_vision_service import owl_vision
 import traceback
 import json
 
@@ -68,6 +71,56 @@ async def intervene_agent(session_id: str, message: str) -> bool:
         return True
     return False
 
+
+async def click_by_mark(session_id: str, mark_id: int) -> dict:
+    """
+    Click an element by its Set-of-Marks visual ID.
+    
+    This enables visual element selection - the user/LLM sees numbered marks
+    on the annotated screenshot and can click by saying "click mark 5".
+    
+    Args:
+        session_id: Active session ID
+        mark_id: The visual mark number (1-indexed)
+        
+    Returns:
+        dict with success status and details
+    """
+    browser = running_browsers.get(session_id)
+    if not browser:
+        return {"success": False, "error": "No active browser for session"}
+    
+    # Get active page
+    page = get_active_page(browser)
+    if not page:
+        return {"success": False, "error": "No active page found"}
+    
+    # Use OWL vision service to click by mark
+    if owl_vision.is_available():
+        try:
+            success = await owl_vision.click_by_mark(page, mark_id)
+            if success:
+                element = owl_vision.get_element_by_mark(mark_id)
+                coords = owl_vision.get_click_coordinates(mark_id)
+                await notify_session(session_id, "click_by_mark", {
+                    "sessionId": session_id,
+                    "mark_id": mark_id,
+                    "success": True,
+                    "coordinates": coords,
+                    "element_type": element.element_type if element else None
+                })
+                return {
+                    "success": True, 
+                    "mark_id": mark_id,
+                    "coordinates": coords,
+                    "element_type": element.element_type if element else "unknown"
+                }
+            else:
+                return {"success": False, "error": f"Mark {mark_id} not found in current view"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    else:
+        return {"success": False, "error": "OWL Vision not available"}
 
 async def stream_cdp_screencast(session_id: str, browser: Browser):
     """
@@ -277,11 +330,24 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
         running_agents[session_id] = agent
         running_browsers[session_id] = browser
         
+        # Initialize OWL Vision for visual element detection
+        owl_vision_enabled = False
+        if agent_config and agent_config.get('enableOwlVision', True):
+            try:
+                owl_vision_enabled = await owl_vision.initialize()
+                if owl_vision_enabled:
+                    print(f"🦉 OWL Vision initialized for session {session_id}")
+                else:
+                    print(f"⚠ OWL Vision not available, using standard screenshots")
+            except Exception as e:
+                print(f"⚠ OWL Vision init error: {e}")
+        
         # Start live screenshot streaming (2fps)
         start_streaming(session_id, browser)
         
         step_count = 0
         all_results = []
+        current_marks = []  # Store current Set-of-Marks for click-by-mark
 
         async def on_step_end(agent_instance=None):
             nonlocal step_count
@@ -384,8 +450,11 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
             # Capture screenshot from browser and send to frontend
             print(f"🖼️  Attempting screenshot capture for step {step_count}...")
             try:
+                nonlocal current_marks
                 screenshot_base64 = None
+                annotated_base64 = None
                 page = None
+                marks_description = ""
                 
                 # Use improved page discovery - follows active tab
                 page = get_active_page(browser)
@@ -406,7 +475,7 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
                 if page:
                     # Strategy 1: Try immediate screenshot first
                     try:
-                        screenshot_bytes = await page.screenshot(timeout=3000)
+                        screenshot_bytes = await page.screenshot(timeout=3000, type='png')
                         screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
                         print(f"   ✓ Screenshot captured immediately ({len(screenshot_bytes)} bytes)")
                     except Exception as immediate_err:
@@ -417,7 +486,7 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
                         page = get_active_page(browser)
                         if page:
                             try:
-                                screenshot_bytes = await page.screenshot(timeout=3000)
+                                screenshot_bytes = await page.screenshot(timeout=3000, type='png')
                                 screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
                                 print(f"   ✓ Screenshot captured after page refresh ({len(screenshot_bytes)} bytes)")
                             except Exception as retry_err:
@@ -427,7 +496,7 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
                         if not screenshot_base64 and page:
                             try:
                                 await page.wait_for_load_state('networkidle', timeout=5000)
-                                screenshot_bytes = await page.screenshot(timeout=3000)
+                                screenshot_bytes = await page.screenshot(timeout=3000, type='png')
                                 screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
                                 print(f"   ✓ Screenshot captured after networkidle ({len(screenshot_bytes)} bytes)")
                             except Exception as networkidle_err:
@@ -437,19 +506,57 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
                                 try:
                                     await page.wait_for_load_state('load', timeout=5000)
                                     await asyncio.sleep(0.5)
-                                    screenshot_bytes = await page.screenshot(timeout=3000)
+                                    screenshot_bytes = await page.screenshot(timeout=3000, type='png')
                                     screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
                                     print(f"   ✓ Screenshot captured after load+delay ({len(screenshot_bytes)} bytes)")
                                 except Exception as load_err:
                                     print(f"   ✗ All screenshot strategies failed: {load_err}")
                     
-                    # Send screenshot if we got one
+                    # Apply OWL Vision Set-of-Marks overlay if enabled
+                    if screenshot_base64 and owl_vision_enabled and owl_vision.is_available():
+                        try:
+                            print(f"   🦉 Applying OWL Vision Set-of-Marks overlay...")
+                            # Use analyze_page for YOLOv8 detection + Set-of-Marks
+                            annotated_base64, current_marks, marks_description = await owl_vision.analyze_page(
+                                page, 
+                                interactive_only=True
+                            )
+                            print(f"   🦉 Detected {len(current_marks)} interactive elements")
+                        except Exception as owl_err:
+                            print(f"   ⚠ OWL Vision error: {owl_err}")
+                            # Continue with raw screenshot
+                    
+                    # Send screenshot(s) to frontend
                     if screenshot_base64:
+                        # Send raw screenshot
                         await notify_session(session_id, "screenshot", {
                             "sessionId": session_id,
-                            "screenshot": screenshot_base64
+                            "screenshot": screenshot_base64,
+                            "format": "png"
                         })
-                        print(f"   📤 Screenshot sent to frontend for step {step_count}")
+                        print(f"   📤 Raw screenshot sent to frontend for step {step_count}")
+                        
+                        # Send annotated screenshot with marks if available
+                        if annotated_base64:
+                            marks_data = [
+                                {
+                                    "id": m.mark_id,
+                                    "type": m.element_type,
+                                    "center": m.center,
+                                    "box": m.bounding_box,
+                                    "text": m.text[:100] if m.text else None,
+                                    "confidence": m.confidence
+                                }
+                                for m in current_marks
+                            ]
+                            await notify_session(session_id, "owl_vision", {
+                                "sessionId": session_id,
+                                "annotated_screenshot": annotated_base64,
+                                "marks_count": len(current_marks),
+                                "marks": marks_data,
+                                "description": marks_description
+                            })
+                            print(f"   🦉 Annotated screenshot with {len(current_marks)} marks sent")
                     else:
                         print(f"   ✗ No screenshot data captured for step {step_count}")
                 else:

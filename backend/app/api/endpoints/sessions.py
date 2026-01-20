@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel
 from typing import Optional, List
 import uuid
-from app.services.agent_service import run_agent_task, stop_agent_task, intervene_agent
+from app.services.agent_service import run_agent_task, stop_agent_task, intervene_agent, click_by_mark
 from app.services.database import db
 
 router = APIRouter()
@@ -191,6 +191,10 @@ async def get_session_messages(session_id: str, request: Request):
 class InterventionRequest(BaseModel):
     message: str
 
+
+class ClickByMarkRequest(BaseModel):
+    mark_id: int
+
 @router.post("/{session_id}/intervene", response_model=dict)
 async def intervene_session(session_id: str, intervention: InterventionRequest, request: Request):
     """
@@ -218,6 +222,39 @@ async def intervene_session(session_id: str, intervention: InterventionRequest, 
             return {"data": {"success": True, "message": f"Intervention sent: {intervention.message}"}}
         else:
             raise HTTPException(status_code=400, detail="No running agent found for this session or agent doesn't support intervention")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/{session_id}/click-by-mark", response_model=dict)
+async def click_by_mark_endpoint(session_id: str, click_request: ClickByMarkRequest, request: Request):
+    """
+    Click an element by its visual Set-of-Marks ID.
+    
+    OWL Vision annotates screenshots with numbered marks on detected elements.
+    This endpoint enables clicking elements by their mark number for visual selection.
+    """
+    try:
+        auth_header = request.headers.get('Authorization')
+        token = auth_header.split(" ")[1] if auth_header and " " in auth_header else None
+
+        # Verify session exists and is active
+        session = await db.get_session(session_id, token)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        if session.get('status') != 'active':
+            raise HTTPException(status_code=400, detail="Session is not active")
+        
+        # Execute click by mark
+        result = await click_by_mark(session_id, click_request.mark_id)
+        
+        if result.get("success"):
+            return {"data": result}
+        else:
+            raise HTTPException(status_code=400, detail=result.get("error", "Click by mark failed"))
     except HTTPException:
         raise
     except Exception as e:

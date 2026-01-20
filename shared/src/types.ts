@@ -93,6 +93,7 @@ export type WSEventType =
   | 'session_start'
   | 'session_update'
   | 'session_complete'
+  | 'session_stopped'
   | 'action_executed'
   | 'action_log'
   | 'browser_ready'
@@ -103,6 +104,11 @@ export type WSEventType =
   | 'error'
   | 'paused'
   | 'cancelled'
+  | 'screenshot'
+  | 'screenshot_stream'
+  | 'owl_vision'
+  | 'click_by_mark'
+  | 'intervention'
 
 export interface WSEvent {
   type: WSEventType

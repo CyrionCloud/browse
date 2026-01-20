@@ -118,6 +118,44 @@ export function useWebSocket() {
           result: event.results,
         })
       })
+
+      // Screenshot events - raw browser view
+      globalSocket.on('screenshot', (event: any) => {
+        console.log('Screenshot received:', event.sessionId)
+        addWsEvent({
+          type: 'screenshot',
+          sessionId: event.sessionId,
+          timestamp: new Date().toISOString(),
+          data: { screenshot: event.screenshot, format: event.format }
+        })
+      })
+
+      // OWL Vision events - Set-of-Marks annotated screenshots
+      globalSocket.on('owl_vision', (event: any) => {
+        console.log('OWL Vision marks:', event.marks_count, 'elements detected')
+        addWsEvent({
+          type: 'owl_vision',
+          sessionId: event.sessionId,
+          timestamp: new Date().toISOString(),
+          data: {
+            annotated_screenshot: event.annotated_screenshot,
+            marks_count: event.marks_count,
+            marks: event.marks,
+            description: event.description
+          }
+        })
+      })
+
+      // Click by mark confirmation events
+      globalSocket.on('click_by_mark', (event: any) => {
+        console.log('Click by mark:', event.mark_id, event.success ? 'success' : 'failed')
+        addWsEvent({
+          type: 'click_by_mark',
+          sessionId: event.sessionId,
+          timestamp: new Date().toISOString(),
+          data: event
+        })
+      })
     }
 
     // Set the socket in state so component re-renders
