@@ -193,6 +193,19 @@ export function SessionViewer({ session, onSessionUpdate }: SessionViewerProps) 
       }
     }
 
+    // CDP Live Streaming handler - continuous 2fps updates
+    const handleScreenshotStream = (data: { sessionId: string; screenshot: string; format?: string; url?: string }) => {
+      if (data.sessionId !== session.id) return
+      if (data.screenshot) {
+        // For streaming, we only update the current screenshot, not timeline
+        // This is more efficient and avoids memory buildup
+        const prefix = data.format === 'jpeg' ? 'data:image/jpeg;base64,' : 'data:image/png;base64,'
+        updateSessionData(session.id, {
+          screenshot: data.screenshot.startsWith('data:') ? data.screenshot : prefix + data.screenshot
+        })
+      }
+    }
+
     const handleSessionUpdate = (data: { sessionId: string; session?: BrowserSession; progress?: any; step?: number; maxSteps?: number }) => {
       if (data.sessionId !== session.id) return
       console.log('session_update received', data)
@@ -223,6 +236,7 @@ export function SessionViewer({ session, onSessionUpdate }: SessionViewerProps) 
     socket.on('action_log', handleActionLog)
     socket.on('dom_tree', handleDomTree)
     socket.on('screenshot', handleScreenshot)
+    socket.on('screenshot_stream', handleScreenshotStream)
     socket.on('session_update', handleSessionUpdate)
     socket.on('step_starting', handleStepStarting)
     socket.on('connect', handleReconnect)
@@ -233,6 +247,7 @@ export function SessionViewer({ session, onSessionUpdate }: SessionViewerProps) 
       socket.off('action_log', handleActionLog)
       socket.off('dom_tree', handleDomTree)
       socket.off('screenshot', handleScreenshot)
+      socket.off('screenshot_stream', handleScreenshotStream)
       socket.off('session_update', handleSessionUpdate)
       socket.off('step_starting', handleStepStarting)
       socket.off('connect', handleReconnect)

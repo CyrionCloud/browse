@@ -15,6 +15,8 @@ running_agents: dict[str, Agent] = {}
 running_browsers: dict[str, Browser] = {}
 # Store stop flags to signal agents to stop
 stop_flags: dict[str, bool] = {}
+# Store streaming tasks for live screenshot streaming
+streaming_tasks: dict[str, asyncio.Task] = {}
 
 
 def get_active_page(browser: Browser):
@@ -66,6 +68,80 @@ async def intervene_agent(session_id: str, message: str) -> bool:
         return True
     return False
 
+
+async def stream_screenshots(session_id: str, browser: Browser, interval: float = 0.5):
+    """
+    Continuously stream screenshots from the browser at ~2fps.
+    This provides a smooth real-time view instead of per-action static screenshots.
+    """
+    print(f"🎥 Starting live screenshot streaming for session {session_id} at {1/interval}fps")
+    last_screenshot_hash = None
+    consecutive_failures = 0
+    max_failures = 10
+    
+    while not should_stop(session_id) and session_id in running_browsers:
+        try:
+            page = get_active_page(browser)
+            if page:
+                try:
+                    # Capture screenshot with reduced quality for faster streaming
+                    screenshot_bytes = await page.screenshot(
+                        timeout=2000,
+                        type='jpeg',
+                        quality=70  # Reduced quality for performance
+                    )
+                    
+                    # Simple hash to avoid sending duplicate frames
+                    screenshot_hash = hash(screenshot_bytes[:1000])  # Hash first 1KB
+                    
+                    if screenshot_hash != last_screenshot_hash:
+                        screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
+                        await notify_session(session_id, "screenshot_stream", {
+                            "sessionId": session_id,
+                            "screenshot": screenshot_base64,
+                            "format": "jpeg",
+                            "url": page.url
+                        })
+                        last_screenshot_hash = screenshot_hash
+                        consecutive_failures = 0
+                except Exception as e:
+                    consecutive_failures += 1
+                    if consecutive_failures >= max_failures:
+                        print(f"   ✗ Too many streaming failures, stopping: {e}")
+                        break
+            else:
+                consecutive_failures += 1
+                
+        except Exception as e:
+            consecutive_failures += 1
+            if consecutive_failures >= max_failures:
+                print(f"   ✗ Streaming stopped due to errors: {e}")
+                break
+        
+        await asyncio.sleep(interval)
+    
+    print(f"🎥 Screenshot streaming stopped for session {session_id}")
+
+
+def start_streaming(session_id: str, browser: Browser):
+    """Start the background screenshot streaming task."""
+    if session_id not in streaming_tasks:
+        task = asyncio.create_task(stream_screenshots(session_id, browser, interval=0.5))
+        streaming_tasks[session_id] = task
+        print(f"🎥 Streaming task started for session {session_id}")
+
+
+async def stop_streaming(session_id: str):
+    """Stop the background screenshot streaming task."""
+    if session_id in streaming_tasks:
+        task = streaming_tasks.pop(session_id)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        print(f"🎥 Streaming task stopped for session {session_id}")
+
 async def run_agent_task(session_id: str, task: str, token: str = None, agent_config: dict = None):
     """
     Direct integration of browser-use agent with Supabase persistence.
@@ -116,6 +192,9 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
         # Store agent and browser for intervention/stop capability
         running_agents[session_id] = agent
         running_browsers[session_id] = browser
+        
+        # Start live screenshot streaming (2fps)
+        start_streaming(session_id, browser)
         
         step_count = 0
         all_results = []
@@ -356,6 +435,9 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
             "error": error_msg
         })
     finally:
+        # Stop screenshot streaming first
+        await stop_streaming(session_id)
+        
         # Cleanup running agent and browser references
         if session_id in running_agents:
             del running_agents[session_id]
@@ -385,6 +467,9 @@ async def stop_agent_task(session_id: str):
     
     # Set stop flag for the agent
     stop_flags[session_id] = True
+    
+    # Stop screenshot streaming
+    await stop_streaming(session_id)
     
     # Try to close the browser
     browser = running_browsers.get(session_id)
