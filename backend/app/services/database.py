@@ -36,7 +36,7 @@ class DatabaseService:
             options=ClientOptions(headers={"Authorization": f"Bearer {token}"})
         )
 
-    async def create_session(self, user_id: str, task: str, token: str = None, agent_config: dict = None):
+    async def create_session(self, user_id: str, task: str, token: str = None, agent_config: dict = None, title: str = None):
         """
         Create a new browser session in the database.
         """
@@ -48,6 +48,9 @@ class DatabaseService:
             "task_description": task,
             "actions_count": 0
         }
+        
+        if title:
+            data["title"] = title
 
         try:
             # Try with agent_config (New Schema)
@@ -169,5 +172,41 @@ class DatabaseService:
         client = self.get_authenticated_client(token) if token else self.get_client()
         res = client.table("error_patterns").select("*").execute()
         return res.data
+
+    async def get_cached_plan(self, cache_key: str):
+        """Get a cached plan by key"""
+        # Always use service key (anonymous access ok for cache)
+        client = self.get_client()
+        try:
+            res = client.table("cached_plans").select("*").eq("cache_key", cache_key).maybe_single().execute()
+            if res.data:
+                # Update last_used_at asynchronously (fire and forget)
+                try:
+                    client.table("cached_plans").update({
+                        "last_used_at": "now()",
+                        "success_count": res.data.get("success_count", 0) + 1
+                    }).eq("id", res.data["id"]).execute()
+                except: pass
+            return res.data
+        except Exception as e:
+            logger.error(f"Failed to get cached plan: {e}")
+            return None
+
+    async def save_cached_plan(self, cache_key: str, goal: str, url: str, actions: list, duration_ms: int = 0):
+        """Save a new cached plan"""
+        client = self.get_client()
+        data = {
+            "cache_key": cache_key,
+            "goal": goal,
+            "url": url,
+            "actions": actions,
+            "avg_duration_ms": duration_ms
+        }
+        try:
+            # Upsert based on cache_key
+            res = client.table("cached_plans").upsert(data, on_conflict="cache_key").execute()
+            return res.data
+        except Exception as e:
+            logger.error(f"Failed to save cached plan: {e}")
 
 db = DatabaseService()

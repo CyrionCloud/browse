@@ -4,7 +4,8 @@ import { useAppStore } from '@/store/useAppStore'
 import type { WSEvent } from '@autobrowse/shared'
 
 // Socket.IO uses HTTP for initial handshake, then upgrades to WebSocket
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:8000'
+// Default to empty string to use relative path (proxied by Next.js)
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || ''
 
 // Singleton socket instance
 let globalSocket: Socket | null = null

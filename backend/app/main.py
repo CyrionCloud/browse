@@ -10,7 +10,8 @@ fastapi_app = FastAPI(title="AutoBrowse Backend", version="0.1.0")
 # CORS
 fastapi_app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    # allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=".*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

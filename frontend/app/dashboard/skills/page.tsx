@@ -5,7 +5,7 @@ import { Pencil, Trash2, Globe, Lock, Plus } from 'lucide-react'
 import { Card, Button, Badge } from '@/components/ui'
 import axios from 'axios'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api'
 
 interface Skill {
   id: string
@@ -36,7 +36,8 @@ export default function MySkillsPage() {
   const loadSkills = async () => {
     try {
       const { data } = await axios.get(`${API_BASE}/skills/user/all`)
-      setSkills(data.filter((s: Skill) => s.is_active))
+      // Show skills unless explicitly inactive
+      setSkills(data.filter((s: Skill) => s.is_active !== false))
       setLoading(false)
     } catch (error) {
       console.error('Failed to load skills:', error)

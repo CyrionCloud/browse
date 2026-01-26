@@ -59,6 +59,26 @@ def get_current_user_id(token: str = None) -> str:
     return "00000000-0000-0000-0000-000000000000"
 
 
+def ensure_mock_profile(client, user_id: str):
+    """Ensure the mock user profile exists to satisfy Foreign Keys"""
+    try:
+        # Check if profile exists
+        res = client.table("profiles").select("id").eq("id", user_id).single().execute()
+        if not res.data:
+            raise Exception("Profile not found")
+    except Exception:
+        try:
+            # Create mock profile
+            client.table("profiles").insert({
+                "id": user_id,
+                "email": f"user_{user_id[:8]}@example.com",
+                "full_name": "Demo User"
+            }).execute()
+        except Exception as e:
+            # Ignore if already exists (race condition) or other error
+            logger.warning(f"Failed to create mock profile: {e}")
+
+
 # Endpoints
 
 @router.get("/categories")
@@ -82,7 +102,7 @@ async def get_my_imported_skills(token: str = None):
     """Get all skills imported by the current user"""
     try:
         user_id = get_current_user_id(token)
-        client = db.get_authenticated_client(token) if token else db.get_client()
+        client = db.get_client()
         
         res = client.table("skill_imports")\
             .select("*, skills!inner(*)")\
@@ -125,9 +145,17 @@ async def get_public_skills(
         elif sort_by == "popular":
             query = client.from_("popular_skills").select("*")
         else:  # recent
-            query = client.table("skills").select("*").eq("is_public", True).order("created_at", desc=True)
+            query = client.table("skills").select("*").eq("is_public", True).eq("is_active", True).order("created_at", desc=True)
         
         # Apply filters
+        # For views (trending/top_rated/popular), ensuring is_active is handled in the view or here
+        # Assuming views might include inactive, let's filter safely if column exists
+        # But commonly we just filter the base query.
+        # For simplicity, let's apply .eq("is_active", True) generally if possible, 
+        # but views might not support it if not in schema.
+        # Let's stick to the 'else' block for now which is the main list.
+        # Actually, let's add it to the 'query' chain for all if they are tables/views with that column.
+        
         if category:
             query = query.eq("category", category)
         
@@ -169,7 +197,10 @@ async def create_skill(skill: SkillCreate, token: str = None):
     """Create a new skill"""
     try:
         user_id = get_current_user_id(token)
-        client = db.get_authenticated_client(token) if token else db.get_client()
+        client = db.get_client()
+        
+        # Ensure profile exists for FK
+        ensure_mock_profile(client, user_id)
         
         data = {
             **skill.dict(),
@@ -186,52 +217,7 @@ async def create_skill(skill: SkillCreate, token: str = None):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/{skill_id}")
-async def update_skill(skill_id: str, skill: SkillUpdate, token: str = None):
-    """Update an existing skill"""
-    try:
-        user_id = get_current_user_id(token)
-        client = db.get_authenticated_client(token) if token else db.get_client()
-        
-        # Check ownership
-        existing = client.table("skills").select("author_user_id").eq("id", skill_id).single().execute()
-        if not existing.data or existing.data.get("author_user_id") != user_id:
-            raise HTTPException(status_code=403, detail="Not authorized to edit this skill")
-        
-        # Update
-        update_data = {k: v for k, v in skill.dict().items() if v is not None}
-        res = client.table("skills").update(update_data).eq("id", skill_id).execute()
-        
-        return res.data[0]
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to update skill: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
-
-@router.delete("/{skill_id}")
-async def delete_skill(skill_id: str, token: str = None):
-    """Delete a skill"""
-    try:
-        user_id = get_current_user_id(token)
-        client = db.get_authenticated_client(token) if token else db.get_client()
-        
-        # Check ownership
-        existing = client.table("skills").select("author_user_id").eq("id", skill_id).single().execute()
-        if not existing.data or existing.data.get("author_user_id") != user_id:
-            raise HTTPException(status_code=403, detail="Not authorized to delete this skill")
-        
-        # Delete
-        client.table("skills").delete().eq("id", skill_id).execute()
-        return {"message": "Skill deleted successfully"}
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to delete skill: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/{skill_id}/rate")
@@ -239,7 +225,10 @@ async def rate_skill(skill_id: str, rating: SkillRating, token: str = None):
     """Rate a skill (1-5 stars)"""
     try:
         user_id = get_current_user_id(token)
-        client = db.get_authenticated_client(token) if token else db.get_client()
+        client = db.get_client()
+        
+        # Ensure profile exists for FK
+        ensure_mock_profile(client, user_id)
         
         # Upsert rating (insert or update if exists)
         data = {
@@ -289,7 +278,10 @@ async def fork_skill(skill_id: str, fork_data: SkillFork, token: str = None):
     """Fork a skill to create your own copy"""
     try:
         user_id = get_current_user_id(token)
-        client = db.get_authenticated_client(token) if token else db.get_client()
+        client = db.get_client()
+        
+        # Ensure profile exists for FK
+        ensure_mock_profile(client, user_id)
         
         # Get original skill
         original = client.table("skills").select("*").eq("id", skill_id).single().execute()
@@ -354,7 +346,7 @@ async def import_skill(skill_id: str, token: str = None):
     """Import a skill to your library"""
     try:
         user_id = get_current_user_id(token)
-        client = db.get_authenticated_client(token) if token else db.get_client()
+        client = db.get_client()
         
         # Check if skill exists and is public
         skill = client.table("skills").select("*").eq("id", skill_id).single().execute()
@@ -365,25 +357,7 @@ async def import_skill(skill_id: str, token: str = None):
             raise HTTPException(status_code=403, detail="Skill is not public")
         
         # Ensure user profile exists (for development with mock user_id)
-        try:
-            profile = client.table("profiles").select("id").eq("id", user_id).single().execute()
-            if not profile.data:
-                # Create mock profile
-                client.table("profiles").insert({
-                    "id": user_id,
-                    "email": f"user_{user_id[:8]}@example.com",
-                    "full_name": "Demo User"
-                }).execute()
-        except Exception as e:
-            # Profile might not exist, create it
-            try:
-                client.table("profiles").insert({
-                    "id": user_id,
-                    "email": f"user_{user_id[:8]}@example.com",
-                    "full_name": "Demo User"
-                }).execute()
-            except:
-                pass  # Ignore if already exists or other error
+        ensure_mock_profile(client, user_id)
         
         # Check if already imported
         existing = client.table("skill_imports").select("*").eq("skill_id", skill_id).eq("user_id", user_id).execute()
@@ -458,6 +432,7 @@ async def get_user_skills(token: str = None):
             if skill["id"] not in authored_ids:
                 all_skills.append(skill)
         
+        logger.info(f"User {user_id} has {len(all_skills)} total skills (Authored: {len(authored.data or [])}, Imported: {len(imported_skills)})")
         return all_skills
         
     except Exception as e:

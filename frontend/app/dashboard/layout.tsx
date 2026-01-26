@@ -21,6 +21,7 @@ import {
   CreditCard,
   User,
   Key,
+  FolderOpen,
 } from 'lucide-react'
 
 interface DashboardLayoutProps {
@@ -32,6 +33,8 @@ const navigation = [
   { name: 'Skills', href: '/dashboard/skills', icon: BookOpen },
   { name: 'Marketplace', href: '/dashboard/marketplace', icon: ShoppingBag },
   { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
+  { name: 'Library', href: '/dashboard/library', icon: FolderOpen },
+  { name: 'Credentials', href: '/dashboard/credentials', icon: Key },
 ]
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {

@@ -19,6 +19,7 @@ import {
   X,
   Minus,
   Square,
+  MousePointer2,
 } from 'lucide-react'
 import type { BrowserAction, SessionStatus } from '@autobrowse/shared'
 
@@ -28,6 +29,7 @@ interface ScreenshotViewerProps {
   sessionStatus: SessionStatus
   currentUrl?: string
   pageTitle?: string
+  onTakeControl?: () => void
 }
 
 export function ScreenshotViewer({
@@ -36,6 +38,7 @@ export function ScreenshotViewer({
   sessionStatus,
   currentUrl = 'about:blank',
   pageTitle = 'New Tab',
+  onTakeControl,
 }: ScreenshotViewerProps) {
   const [zoom, setZoom] = useState(1)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -206,18 +209,31 @@ export function ScreenshotViewer({
           >
             <Download className="h-4 w-4" />
           </button>
+          {onTakeControl && (
+            <>
+              <div className="w-px h-4 bg-border mx-1" />
+              <button
+                onClick={onTakeControl}
+                className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-amber-500 bg-amber-500/10 hover:bg-amber-500/20 rounded transition-colors"
+                title="Take manual control"
+              >
+                <MousePointer2 className="h-3.5 w-3.5" />
+                Take Control
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Screenshot Display - Dynamic Fitting */}
-      <div className="flex-1 overflow-auto bg-[#1a1a1a] flex items-center justify-center p-2">
+      {/* Screenshot Display - Contain within canvas */}
+      <div className="flex-1 overflow-hidden bg-[#1a1a1a] relative">
         {screenshot ? (
           <div
             className={cn(
-              "relative transition-transform duration-200",
-              fitToScreen ? "w-full h-full flex items-center justify-center" : ""
+              "absolute inset-0 flex items-center justify-center p-4",
+              !fitToScreen && "overflow-auto"
             )}
-            style={!fitToScreen ? { transform: `scale(${zoom})`, transformOrigin: 'top left' } : undefined}
+            style={!fitToScreen ? { transform: `scale(${zoom})`, transformOrigin: 'center' } : undefined}
           >
             <img
               ref={imageRef}
@@ -225,7 +241,7 @@ export function ScreenshotViewer({
               alt="Browser screenshot"
               className={cn(
                 "shadow-2xl border border-[#333]",
-                fitToScreen ? "max-w-full max-h-full object-contain" : "max-w-none"
+                fitToScreen ? "max-w-full max-h-full object-contain" : ""
               )}
               style={{ imageRendering: zoom > 1.5 ? 'pixelated' : 'auto' }}
             />
@@ -246,7 +262,7 @@ export function ScreenshotViewer({
             )}
           </div>
         ) : (
-          <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
             <ImageOff className="h-16 w-16 mb-4 opacity-50" />
             <p className="text-sm font-medium">No screenshot available</p>
             <p className="text-xs mt-1">

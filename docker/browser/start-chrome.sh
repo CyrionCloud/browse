@@ -32,7 +32,7 @@ exec google-chrome-stable \
     --disable-dev-shm-usage \
     --disable-gpu \
     --disable-software-rasterizer \
-    --remote-debugging-port=9222 \
+    --remote-debugging-port=9223 \
     --remote-debugging-address=0.0.0.0 \
     --display=:99 \
     --window-size=${SCREEN_WIDTH:-1920},${SCREEN_HEIGHT:-1080} \
@@ -43,7 +43,8 @@ exec google-chrome-stable \
     --disable-features=TranslateUI \
     --disable-ipc-flooding-protection \
     --disable-hang-monitor \
+    --remote-allow-origins=* \
     --no-first-run \
     --no-default-browser-check \
-    --user-data-dir=/home/chrome/.config/google-chrome \
+    --user-data-dir=/tmp/chrome-data \
     about:blank

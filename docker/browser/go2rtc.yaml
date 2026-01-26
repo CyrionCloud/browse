@@ -1,0 +1,27 @@
+streams:
+  # Raw capture stream - H264 MPEG-TS (for internal use)
+  raw: exec:ffmpeg -f x11grab -draw_mouse 1 -framerate 30 -video_size 1920x1080 -i :99 -c:v libx264 -preset ultrafast -tune zerolatency -profile:v baseline -level 3.1 -pix_fmt yuv420p -g 30 -f mpegts -
+
+  # Main stream for WebRTC - Transcodes H264 to VP8
+  # go2rtc's ffmpeg source uses FFmpeg to transcode the raw stream
+  # -c:v libvpx for VP8 encoding (WebRTC compatible)
+  stream: ffmpeg:raw#video=libvpx#hardware
+
+ffmpeg:
+  bin: ffmpeg
+
+api:
+  listen: ":1984"
+  cors: "*"
+  origin: "*"
+
+rtsp:
+  listen: ":8554"
+
+webrtc:
+  # Enable ICE servers for NAT traversal
+  candidates:
+    - stun:stun.l.google.com:19302
+
+log:
+  level: info

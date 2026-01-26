@@ -11,6 +11,7 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  Copy,
 } from 'lucide-react'
 import { cn, formatDuration, formatDate } from '@/lib/utils'
 import type { SessionStatus, BrowserSession } from '@autobrowse/shared'
@@ -36,6 +37,14 @@ const statusConfig: Record<SessionStatus, { icon: typeof CheckCircle2; color: st
 function SessionCard({ session, onStart, onPause, onCancel, onDelete, onSelect }: SessionCardProps) {
   const status = statusConfig[session.status]
   const StatusIcon = status.icon
+  const [copied, setCopied] = useState(false)
+
+  const handleCopyId = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(session.id)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
     <Card
@@ -48,23 +57,48 @@ function SessionCard({ session, onStart, onPause, onCancel, onDelete, onSelect }
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-               <StatusIcon
-                 className={cn(
-                   'h-4 w-4',
-                   status.color === 'accent' && 'text-accent',
-                   status.color === 'success' && 'text-success',
-                   status.color === 'warning' && 'text-warning',
-                   status.color === 'error' && 'text-error-muted',
-                   status.color === 'default' && 'text-muted-foreground'
-                 )}
-               />
-               <Badge variant={status.color as any}>{status.label}</Badge>
+            <div className="flex items-center gap-2 mb-2">
+              <StatusIcon
+                className={cn(
+                  'h-4 w-4',
+                  status.color === 'accent' && 'text-accent',
+                  status.color === 'success' && 'text-success',
+                  status.color === 'warning' && 'text-warning',
+                  status.color === 'error' && 'text-error-muted',
+                  status.color === 'default' && 'text-muted-foreground'
+                )}
+              />
+              <Badge variant={status.color as any}>{status.label}</Badge>
+
+              <div
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer px-1.5 py-0.5 rounded hover:bg-muted/50 transition-colors ml-2"
+                onClick={handleCopyId}
+                title="Copy Session ID"
+              >
+                <span className="font-mono opacity-70">{session.id.slice(0, 8)}...</span>
+                {copied ? (
+                  <CheckCircle2 className="h-3 w-3 text-success" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
+              </div>
             </div>
-            <h3 className="font-medium text-foreground truncate">
-              {session.task_description}
+
+            <h3 className="font-medium text-foreground truncate text-base">
+              {session.title || session.task_description}
             </h3>
-            <p className="text-sm text-muted-foreground mt-1">
+
+            {session.summary ? (
+              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                {session.summary}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground mt-1 line-clamp-1 opacity-70">
+                {session.task_description}
+              </p>
+            )}
+
+            <p className="text-xs text-muted-foreground mt-2 opacity-50">
               {formatDate(session.created_at)}
             </p>
           </div>

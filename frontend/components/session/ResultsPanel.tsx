@@ -11,6 +11,9 @@ import {
     FileText,
     Target,
     Lightbulb,
+    ChevronDown,
+    ChevronRight,
+    Sparkles,
 } from 'lucide-react'
 import type { BrowserAction, SessionStatus } from '@autobrowse/shared'
 
@@ -38,228 +41,203 @@ export function ResultsPanel({
     className,
 }: ResultsPanelProps) {
     const [findings, setFindings] = useState<Finding[]>([])
+    const [showTechnical, setShowTechnical] = useState(false)
 
     // Extract findings from actions
     useEffect(() => {
         const newFindings: Finding[] = []
 
-        // Add task started finding
-        if (actions.length > 0 || sessionStatus === 'active') {
-            newFindings.push({
-                id: 'task-start',
-                type: 'info',
-                title: 'Task Started',
-                content: taskDescription || 'Executing automation task...',
-                timestamp: new Date(),
-            })
-        }
-
-        // Extract data from all actions with rich metadata
+        // Extract key user-facing results
         actions.forEach((action, index) => {
-            // Get action name from metadata
-            let actionName: string = action.action_type
-            if (action.metadata?.action && Array.isArray(action.metadata.action)) {
-                const firstAction = action.metadata.action[0]
-                if (typeof firstAction === 'object') {
-                    const key = Object.keys(firstAction)[0]
-                    if (key) actionName = key.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-                }
-            }
-
-            // Add goal if present
-            if (action.metadata?.goal) {
-                newFindings.push({
-                    id: `goal-${index}`,
-                    type: 'info',
-                    title: `🎯 Step ${index + 1}: ${actionName}`,
-                    content: action.metadata.goal,
-                    timestamp: new Date(action.created_at),
-                })
-            }
-
-            // Add evaluation if present
-            if (action.metadata?.evaluation) {
-                const isSuccess = action.metadata.evaluation.toLowerCase().includes('success')
-                newFindings.push({
-                    id: `eval-${index}`,
-                    type: isSuccess ? 'success' : 'info',
-                    title: isSuccess ? '👍 Evaluation' : '⚠️ Evaluation',
-                    content: action.metadata.evaluation,
-                    timestamp: new Date(action.created_at),
-                })
-            }
-
-            // Add memory updates (summarized)
-            if (action.metadata?.memory && index === actions.length - 1) {
-                newFindings.push({
-                    id: `memory-${index}`,
-                    type: 'info',
-                    title: '🧠 Agent Memory',
-                    content: action.metadata.memory.length > 200
-                        ? action.metadata.memory.slice(0, 200) + '...'
-                        : action.metadata.memory,
-                    timestamp: new Date(action.created_at),
-                })
-            }
-
-            // Add extracted content
-            if (action.output_value || (action.action_type === 'extract' && action.output_value)) {
+            // Extract meaningful results only
+            if (action.output_value && action.output_value.length > 10) {
                 newFindings.push({
                     id: `result-${index}`,
                     type: 'result',
-                    title: '✅ Result',
-                    content: action.output_value.slice(0, 200) + (action.output_value.length > 200 ? '...' : ''),
+                    title: 'Found Information',
+                    content: action.output_value.slice(0, 300) + (action.output_value.length > 300 ? '...' : ''),
                     timestamp: new Date(action.created_at),
                 })
             }
         })
 
-        // Add completion finding
-        if (sessionStatus === 'completed') {
-            newFindings.push({
-                id: 'task-complete',
-                type: 'success',
-                title: 'Task Completed',
-                content: result || `Successfully completed ${actions.length} actions.`,
-                timestamp: new Date(),
-            })
-        }
-
-        if (sessionStatus === 'failed') {
-            const failedAction = actions.find((a) => !a.success)
-            newFindings.push({
-                id: 'task-failed',
-                type: 'warning',
-                title: 'Task Failed',
-                content: failedAction?.error_message || 'An error occurred during execution.',
-                timestamp: new Date(),
-            })
-        }
-
         setFindings(newFindings)
     }, [actions, sessionStatus, taskDescription, result])
 
-    const getStepIcon = (index: number, total: number) => {
-        if (sessionStatus === 'completed' || index < actions.length) {
-            return <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-        }
-        if (index === actions.length && sessionStatus === 'active') {
-            return <Loader2 className="h-4 w-4 text-accent animate-spin" />
-        }
-        return <Circle className="h-4 w-4 text-muted-foreground" />
-    }
-
-    const getFindingIcon = (type: Finding['type']) => {
-        switch (type) {
-            case 'success':
-                return <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-            case 'warning':
-                return <AlertCircle className="h-4 w-4 text-amber-400" />
-            case 'result':
-                return <Lightbulb className="h-4 w-4 text-accent" />
+    const getStatusBadge = () => {
+        switch (sessionStatus) {
+            case 'completed':
+                return <div className="flex items-center gap-1 px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded text-emerald-400 text-xs font-medium">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Completed Successfully
+                </div>
+            case 'failed':
+                return <div className="flex items-center gap-1 px-2 py-1 bg-red-500/10 border border-red-500/20 rounded text-red-400 text-xs font-medium">
+                    <AlertCircle className="h-3 w-3" />
+                    Failed
+                </div>
+            case 'active':
+                return <div className="flex items-center gap-1 px-2 py-1 bg-accent/10 border border-accent/20 rounded text-accent text-xs font-medium">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    In Progress
+                </div>
             default:
-                return <Target className="h-4 w-4 text-muted-foreground" />
+                return <div className="flex items-center gap-1 px-2 py-1 bg-muted border border-border rounded text-muted-foreground text-xs font-medium">
+                    <Circle className="h-3 w-3" />
+                    {sessionStatus}
+                </div>
         }
     }
 
     return (
-        <Card className={cn('flex flex-col h-full', className)}>
+        <Card className={cn('flex flex-col h-full overflow-hidden', className)}>
             {/* Header */}
             <div className="flex items-center gap-2 p-3 border-b border-border">
                 <FileText className="h-5 w-5 text-accent" />
-                <span className="text-sm font-medium text-foreground">Results & Steps</span>
-                <span className="ml-auto text-xs text-muted-foreground">
-                    {actions.length} actions
-                </span>
+                <span className="text-sm font-medium text-foreground">Results</span>
             </div>
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto">
-                {/* Steps Progress */}
-                <div className="p-3 border-b border-border">
-                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                        Progress
-                    </h4>
-                    <div className="space-y-2">
-                        {actions.slice(-5).map((action, index) => (
-                            <div key={action.id} className="flex items-start gap-2">
-                                {getStepIcon(actions.length - 5 + index, actions.length)}
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-medium text-foreground truncate">
-                                        {action.action_type.charAt(0).toUpperCase() + action.action_type.slice(1)}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground truncate">
-                                        {action.target_description || action.input_value || action.target_selector}
-                                    </p>
-                                </div>
-                                {action.duration_ms && (
-                                    <span className="text-xs text-muted-foreground">
-                                        {action.duration_ms}ms
-                                    </span>
-                                )}
+                {/* Summary Section */}
+                <div className="p-4 border-b border-border bg-surface-elevated/50">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Sparkles className="h-4 w-4 text-accent" />
+                                <h3 className="text-sm font-semibold text-foreground">Task Summary</h3>
                             </div>
-                        ))}
-                        {actions.length === 0 && sessionStatus === 'pending' && (
-                            <p className="text-xs text-muted-foreground italic">
-                                Waiting for task to start...
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                                {taskDescription || 'No task description provided'}
                             </p>
-                        )}
-                        {actions.length === 0 && sessionStatus === 'active' && (
-                            <div className="flex items-center gap-2">
-                                <Loader2 className="h-4 w-4 text-accent animate-spin" />
-                                <p className="text-xs text-muted-foreground">
-                                    Initializing browser...
-                                </p>
+                        </div>
+                        {getStatusBadge()}
+                    </div>
+
+                    {/* Quick Stats */}
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground mt-3 pt-3 border-t border-border/50">
+                        <div className="flex items-center gap-1">
+                            <span className="font-medium text-foreground">{actions.length}</span>
+                            <span>actions performed</span>
+                        </div>
+                        {findings.length > 0 && (
+                            <div className="flex items-center gap-1">
+                                <span className="font-medium text-foreground">{findings.length}</span>
+                                <span>results found</span>
                             </div>
                         )}
                     </div>
                 </div>
 
-                {/* Findings */}
-                <div className="p-3">
-                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                        Findings
-                    </h4>
-                    <div className="space-y-3">
-                        {findings.map((finding) => (
-                            <div
-                                key={finding.id}
-                                className={cn(
-                                    'p-2 rounded-lg border',
-                                    finding.type === 'success' && 'bg-emerald-500/10 border-emerald-500/20',
-                                    finding.type === 'warning' && 'bg-amber-500/10 border-amber-500/20',
-                                    finding.type === 'result' && 'bg-accent/10 border-accent/20',
-                                    finding.type === 'info' && 'bg-surface-elevated border-border'
-                                )}
-                            >
-                                <div className="flex items-center gap-2 mb-1">
-                                    {getFindingIcon(finding.type)}
-                                    <span className="text-xs font-medium text-foreground">
-                                        {finding.title}
-                                    </span>
-                                </div>
-                                <p className="text-xs text-muted-foreground pl-6">
-                                    {finding.content}
-                                </p>
-                            </div>
-                        ))}
-                        {findings.length === 0 && (
-                            <p className="text-xs text-muted-foreground italic">
-                                No findings yet...
-                            </p>
-                        )}
-                    </div>
-                </div>
-
-                {/* Final Result (when completed) */}
-                {sessionStatus === 'completed' && result && (
-                    <div className="p-3 border-t border-border">
-                        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                            Final Result
+                {/* Key Findings */}
+                {findings.length > 0 && (
+                    <div className="p-4 border-b border-border">
+                        <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                            <Lightbulb className="h-4 w-4 text-accent" />
+                            Key Findings
                         </h4>
-                        <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-                            <p className="text-sm text-foreground whitespace-pre-wrap">
-                                {result}
+                        <div className="space-y-3">
+                            {findings.map((finding) => (
+                                <div
+                                    key={finding.id}
+                                    className="p-3 rounded-lg border border-accent/20 bg-accent/5"
+                                >
+                                    <p className="text-sm text-foreground leading-relaxed">
+                                        {finding.content}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Final Result */}
+                {sessionStatus === 'completed' && result && (
+                    <div className="p-4 border-b border-border">
+                        <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                            Final Output
+                        </h4>
+                        <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg overflow-auto max-h-[300px]">
+                            {(() => {
+                                try {
+                                    const json = JSON.parse(result)
+                                    return (
+                                        <pre className="text-xs font-mono text-foreground whitespace-pre-wrap break-all">
+                                            {JSON.stringify(json, null, 2)}
+                                        </pre>
+                                    )
+                                } catch {
+                                    return (
+                                        <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                                            {result}
+                                        </p>
+                                    )
+                                }
+                            })()}
+                        </div>
+                    </div>
+                )}
+
+                {/* Technical Details (Collapsible) */}
+                <div className="p-4">
+                    <button
+                        onClick={() => setShowTechnical(!showTechnical)}
+                        className="w-full flex items-center justify-between text-left hover:bg-surface-elevated rounded p-2 transition-colors"
+                    >
+                        <div className="flex items-center gap-2">
+                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                Technical Details
+                            </h4>
+                            <span className="text-xs text-muted-foreground">
+                                ({actions.length} actions)
+                            </span>
+                        </div>
+                        {showTechnical ? (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        )}
+                    </button>
+
+                    {showTechnical && (
+                        <div className="mt-3 space-y-2">
+                            {actions.slice(-10).map((action, index) => (
+                                <div
+                                    key={action.id}
+                                    className="p-2 rounded border border-border bg-surface text-xs"
+                                >
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                                        <span className="font-medium text-foreground">
+                                            {action.action_type}
+                                        </span>
+                                        {action.duration_ms && (
+                                            <span className="text-muted-foreground ml-auto">
+                                                {action.duration_ms}ms
+                                            </span>
+                                        )}
+                                    </div>
+                                    {action.target_description && (
+                                        <p className="text-muted-foreground pl-5">
+                                            {action.target_description}
+                                        </p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Empty State */}
+                {actions.length === 0 && (
+                    <div className="flex-1 flex items-center justify-center p-8">
+                        <div className="text-center text-muted-foreground">
+                            <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                            <p className="text-sm font-medium">No results yet</p>
+                            <p className="text-xs mt-1">
+                                {sessionStatus === 'pending' && 'Start the session to see results'}
+                                {sessionStatus === 'active' && 'Results will appear as the agent works...'}
                             </p>
                         </div>
                     </div>

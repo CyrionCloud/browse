@@ -9,10 +9,9 @@ RUN apt-get update && apt-get install -y \
     xvfb \
     # X11 utilities for display detection
     x11-xserver-utils \
-    # VNC server
-    x11vnc \
-    # noVNC web client and dependencies
-    novnc \
+
+    # Git for cloning noVNC
+    git \
     # Chrome dependencies
     wget \
     gnupg \
@@ -37,9 +36,10 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     # Process manager
     supervisor \
-    # WebSocket proxy (for noVNC)
-    python3 \
-    python3-pip \
+    # Port forwarding tool
+    socat \
+    # Media tools for WebRTC
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Google Chrome (stable)
@@ -49,8 +49,12 @@ RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearm
     && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
-# Install websockify for WebSocket to TCP proxy
-RUN pip3 install --no-cache-dir websockify
+# Install go2rtc (WebRTC Server)
+RUN wget -q -O /usr/local/bin/go2rtc https://github.com/AlexxIT/go2rtc/releases/download/v1.8.5/go2rtc_linux_amd64 \
+    && chmod +x /usr/local/bin/go2rtc
+
+# Copy go2rtc configuration
+COPY go2rtc.yaml /etc/go2rtc.yaml
 
 # Environment configuration
 ENV DISPLAY=:99
@@ -58,11 +62,8 @@ ENV SCREEN_WIDTH=1920
 ENV SCREEN_HEIGHT=1080
 ENV SCREEN_DEPTH=24
 
-# Create directories for noVNC
-RUN mkdir -p /opt/novnc \
-    && ln -s /usr/share/novnc/vnc.html /usr/share/novnc/index.html
-
 # Copy supervisor configuration and Chrome startup script
+
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY start-chrome.sh /usr/local/bin/start-chrome.sh
 RUN chmod +x /usr/local/bin/start-chrome.sh
@@ -72,15 +73,14 @@ RUN useradd -m -s /bin/bash chrome \
     && mkdir -p /home/chrome/Downloads \
     && chown -R chrome:chrome /home/chrome
 
-# Health check - verify VNC is responding
-HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
-    CMD x11vnc -display :99 -query connected 2>/dev/null || exit 1
+
 
 # Expose ports
-# 5900 - VNC native port
-# 6080 - noVNC WebSocket port (for browser embedding)
 # 9222 - Chrome DevTools Protocol (for Playwright)
-EXPOSE 5900 6080 9222
+# 1984 - go2rtc API / WebRTC WHEP
+# 8554 - RTSP (Internal)
+EXPOSE 9222 1984
+
 
 # Labels
 LABEL maintainer="AutoBrowse"

@@ -2,7 +2,7 @@ import os
 os.environ["ANONYMIZED_TELEMETRY"] = "false"
 
 from pydantic_settings import BaseSettings
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, AliasChoices
 from typing import List, Optional
 
 class Settings(BaseSettings):
@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = [
         "*",
         "https://239bcc511834.ngrok-free.app",
+        "https://8aca0529ae57.ngrok-free.app",
         "http://localhost:3000",
         "http://localhost:3001",
     ]
@@ -19,9 +20,11 @@ class Settings(BaseSettings):
     # 'container' - Use Docker container with noVNC for embedded view
     BROWSER_MODE: str = "direct"  # Default to existing behavior
     BROWSER_CONTAINER_IMAGE: str = "autobrowse/browser:latest"
+    CDP_URL: Optional[str] = "http://localhost:9222"  # URL for remote browser CDP
     
     # Supabase Configuration - support multiple env var names
-    SUPABASE_URL: Optional[str] = Field(None, validation_alias='NEXT_PUBLIC_SUPABASE_URL')
+    # Use AliasChoices to support both standard and Next.js variants
+    SUPABASE_URL: Optional[str] = Field(None, validation_alias=AliasChoices('SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL'))
     
     # Support multiple key naming conventions
     NEXT_PUBLIC_SUPABASE_ANON_KEY: Optional[str] = None
@@ -31,6 +34,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = None
     ANTHROPIC_API_KEY: Optional[str] = None
     DEEPSEEK_API_KEY: Optional[str] = None
+    MODEL_SELECTION: Optional[str] = "gpt-4o"  # Default model
     
     model_config = {
         "case_sensitive": True,

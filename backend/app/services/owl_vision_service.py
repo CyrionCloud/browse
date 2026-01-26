@@ -81,6 +81,7 @@ class OWLVisionService:
             
             # Detect elements
             if self.is_available():
+                elements = []
                 if interactive_only:
                     elements = self.detector.get_interactive_elements(image)
                 else:
@@ -96,6 +97,11 @@ class OWLVisionService:
                     }
                     for e in elements
                 ]
+
+                # If ML failed to find anything (common with generic models), use fallback
+                if not elements_dicts:
+                     logger.info("ℹ ML detection found 0 elements, using fallback edge detection")
+                     elements_dicts = self._fallback_detection(image)
             else:
                 # Fallback: use simple edge detection for elements
                 elements_dicts = self._fallback_detection(image)
@@ -127,18 +133,26 @@ class OWLVisionService:
         
         # Find contours
         contours, _ = cv2.findContours(
-            edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE
         )
         
         elements = []
-        for i, contour in enumerate(contours[:20]):  # Limit to 20
+        # Sort by area, largest first
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)
+        
+        count = 0
+        for contour in contours:
+            if count >= 50: break
+            
             x, y, w, h = cv2.boundingRect(contour)
-            if w > 30 and h > 15:  # Filter small noise
+            # Filter distinct elements
+            if w > 20 and h > 10 and w * h > 500: 
                 elements.append({
                     'type': 'element',
                     'bounding_box': {'x': x, 'y': y, 'width': w, 'height': h},
                     'confidence': 0.5
                 })
+                count += 1
         
         return elements
     

@@ -21,6 +21,9 @@ import {
   FileText,
   GripVertical,
   History,
+  Video,
+  Copy,
+  Zap,
 } from 'lucide-react'
 import { ScreenshotViewer } from './ScreenshotViewer'
 import { ActionLog } from './ActionLog'
@@ -29,7 +32,12 @@ import { ProgressIndicator } from './ProgressIndicator'
 import { ChatPanel } from './ChatPanel'
 import { ResultsPanel } from './ResultsPanel'
 import { TimelinePanel, type TimelineEntry } from './TimelinePanel'
+import { LiveCanvas } from './LiveCanvas'
+import { WebRTCPlayer } from './WebRTCPlayer'
+import { InteractiveControl } from './InteractiveControl'
 import type { BrowserSession, BrowserAction, DomTree } from '@autobrowse/shared'
+
+
 
 interface SessionViewerProps {
   session: BrowserSession
@@ -45,7 +53,7 @@ const statusConfig = {
   cancelled: { icon: Square, color: 'default', label: 'Cancelled' },
 } as const
 
-type ViewMode = 'screenshot' | 'actions' | 'dom' | 'results' | 'timeline'
+type ViewMode = 'live' | 'stream' | 'webrtc' | 'screenshot' | 'actions' | 'dom' | 'results' | 'timeline'
 
 export function SessionViewer({ session, onSessionUpdate }: SessionViewerProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('screenshot')
@@ -67,13 +75,27 @@ export function SessionViewer({ session, onSessionUpdate }: SessionViewerProps) 
   const [chatWidth, setChatWidth] = useState(350)
   const [isResizing, setIsResizing] = useState(false)
 
+  const [browserInfo, setBrowserInfo] = useState<{ webrtc_url: string } | null>(null)
+  const [showInteractiveControl, setShowInteractiveControl] = useState(false)
+
   const { socket, connected } = useWebSocket()
 
   useEffect(() => {
     if (session.id) {
       loadSessionData()
     }
+    if (session.id) {
+      loadSessionData()
+    }
   }, [session.id])
+
+  useEffect(() => {
+    if (viewMode === 'webrtc' && session.id && !browserInfo) {
+      sessionsApi.getBrowser(session.id)
+        .then(info => setBrowserInfo(info))
+        .catch(err => console.error("Failed to get browser info", err))
+    }
+  }, [viewMode, session.id, browserInfo])
 
   // Subscribe to WebSocket events when socket is connected
   useEffect(() => {
@@ -206,6 +228,21 @@ export function SessionViewer({ session, onSessionUpdate }: SessionViewerProps) 
       }
     }
 
+    // Handle OWL Vision events
+    const handleOwlVision = (data: { sessionId: string; annotated_screenshot: string; marks: any[]; marks_count: number }) => {
+      if (data.sessionId !== session.id) return
+
+      console.log('Received OWL Vision update:', data.marks_count, 'marks')
+
+
+      updateSessionData(session.id, (current) => ({
+        ...current,
+        screenshot: data.annotated_screenshot,
+        annotated_screenshot: data.annotated_screenshot,
+        owl_marks: data.marks
+      }))
+    }
+
     const handleSessionUpdate = (data: { sessionId: string; session?: BrowserSession; progress?: any; step?: number; maxSteps?: number }) => {
       if (data.sessionId !== session.id) return
       console.log('session_update received', data)
@@ -237,6 +274,7 @@ export function SessionViewer({ session, onSessionUpdate }: SessionViewerProps) 
     socket.on('dom_tree', handleDomTree)
     socket.on('screenshot', handleScreenshot)
     socket.on('screenshot_stream', handleScreenshotStream)
+    socket.on('owl_vision', handleOwlVision)
     socket.on('session_update', handleSessionUpdate)
     socket.on('step_starting', handleStepStarting)
     socket.on('connect', handleReconnect)
@@ -248,6 +286,7 @@ export function SessionViewer({ session, onSessionUpdate }: SessionViewerProps) 
       socket.off('dom_tree', handleDomTree)
       socket.off('screenshot', handleScreenshot)
       socket.off('screenshot_stream', handleScreenshotStream)
+      socket.off('owl_vision', handleOwlVision)
       socket.off('session_update', handleSessionUpdate)
       socket.off('step_starting', handleStepStarting)
       socket.off('connect', handleReconnect)
@@ -325,20 +364,56 @@ export function SessionViewer({ session, onSessionUpdate }: SessionViewerProps) 
                 )}
               />
               <Badge variant={status.color as any}>{status.label}</Badge>
+              <div
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer px-1.5 py-0.5 rounded hover:bg-muted/50 transition-colors ml-1"
+                onClick={() => navigator.clipboard.writeText(session.id)}
+                title="Copy Session ID"
+              >
+                <span className="font-mono opacity-70">ID: {session.id.slice(0, 8)}...</span>
+                <Copy className="h-3 w-3" />
+              </div>
             </div>
-            <h2 className="text-lg font-semibold text-foreground">
-              {session.task_description}
+
+            <h2 className="text-xl font-semibold text-foreground">
+              {session.title || session.task_description}
             </h2>
-            <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-              <span>Created: {formatDate(session.created_at)}</span>
-              {session.duration_seconds && (
+
+            {/* Metadata Menu */}
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-3 text-sm text-muted-foreground border-t border-border pt-3">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground/60 uppercase text-[10px] font-bold tracking-wider">Started</span>
+                <span>{session.started_at ? formatDate(session.started_at) : formatDate(session.created_at)}</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground/60 uppercase text-[10px] font-bold tracking-wider">Duration</span>
                 <span className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  {formatDuration(session.duration_seconds)}
+                  {session.duration_seconds ? formatDuration(session.duration_seconds) : '-'}
                 </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground/60 uppercase text-[10px] font-bold tracking-wider">Values</span>
+                <span>{actions.length} actions</span>
+              </div>
+
+              {session.agent_config?.model && (
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground/60 uppercase text-[10px] font-bold tracking-wider">Model</span>
+                  <Badge variant="outline" className="text-xs py-0 h-5">
+                    {session.agent_config.model}
+                  </Badge>
+                </div>
               )}
-              <span>{actions.length} actions</span>
             </div>
+
+            {session.summary && (
+              <p className="text-sm text-muted-foreground mt-3 bg-muted/30 p-2 rounded border border-border/50">
+                <span className="opacity-70 mr-2">Summary:</span>
+                {session.summary}
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -433,6 +508,31 @@ export function SessionViewer({ session, onSessionUpdate }: SessionViewerProps) 
         <div className="flex-1 flex flex-col min-w-0">
           {/* View Mode Tabs */}
           <div className="flex items-center gap-2 px-1 mb-2">
+
+            <button
+              onClick={() => setViewMode('stream')}
+              className={cn(
+                'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                viewMode === 'stream'
+                  ? 'bg-purple-500/15 text-purple-500'
+                  : 'bg-surface text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Video className="h-3.5 w-3.5" />
+              Stream (CDP)
+            </button>
+            <button
+              onClick={() => setViewMode('webrtc')}
+              className={cn(
+                'flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors',
+                viewMode === 'webrtc'
+                  ? 'bg-amber-500/15 text-amber-500'
+                  : 'bg-surface text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Zap className="h-3.5 w-3.5" />
+              Stream (Ultra)
+            </button>
             <button
               onClick={() => setViewMode('screenshot')}
               className={cn(
@@ -497,6 +597,20 @@ export function SessionViewer({ session, onSessionUpdate }: SessionViewerProps) 
 
           {/* Browser Content */}
           <div className="flex-1 overflow-hidden">
+
+            {viewMode === 'stream' && (
+              <LiveCanvas
+                sessionId={session.id}
+                className="h-full"
+              />
+            )}
+            {viewMode === 'webrtc' && (
+              <WebRTCPlayer
+                className="h-full"
+                url={browserInfo?.webrtc_url}
+                onTakeControl={() => setShowInteractiveControl(true)}
+              />
+            )}
             {viewMode === 'screenshot' && (
               <ScreenshotViewer
                 screenshot={currentScreenshot}
@@ -504,6 +618,7 @@ export function SessionViewer({ session, onSessionUpdate }: SessionViewerProps) 
                 sessionStatus={session.status}
                 currentUrl={domTree?.url || 'about:blank'}
                 pageTitle={domTree?.title || session.task_description?.slice(0, 30)}
+                onTakeControl={() => setShowInteractiveControl(true)}
               />
             )}
             {viewMode === 'actions' && (
@@ -571,6 +686,12 @@ export function SessionViewer({ session, onSessionUpdate }: SessionViewerProps) 
           />
         </div>
       </div>
+      {/* Interactive Control Modal */}
+      <InteractiveControl
+        sessionId={session.id}
+        isOpen={showInteractiveControl}
+        onClose={() => setShowInteractiveControl(false)}
+      />
     </div>
   )
 }

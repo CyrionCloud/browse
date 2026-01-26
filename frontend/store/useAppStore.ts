@@ -29,6 +29,8 @@ export interface SessionDataEntry {
   screenshot: string | null
   timeline: any[]
   actions: any[]
+  owl_marks?: any[]
+  annotated_screenshot?: string | null
 }
 
 interface AppState {
@@ -137,6 +139,8 @@ export const useAppStore = create<AppState>()(
             screenshot: null,
             timeline: [],
             actions: [],
+            owl_marks: [],
+            annotated_screenshot: null,
           }
 
           // Support functional updates

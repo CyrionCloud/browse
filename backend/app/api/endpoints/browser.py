@@ -25,9 +25,8 @@ class BrowserCreateRequest(BaseModel):
 class BrowserResponse(BaseModel):
     """Response with browser container connection info."""
     session_id: str
-    novnc_url: str
     cdp_url: str
-    vnc_url: str
+    webrtc_url: str
     status: str = "ready"
 
 
@@ -67,9 +66,8 @@ async def create_browser(request: BrowserCreateRequest):
         instance = await browser_manager.create_browser(request.session_id)
         return BrowserResponse(
             session_id=instance.session_id,
-            novnc_url=instance.novnc_url,
             cdp_url=instance.cdp_url,
-            vnc_url=instance.vnc_url,
+            webrtc_url=instance.webrtc_url,
             status="ready",
         )
     except Exception as e:
@@ -80,17 +78,28 @@ async def create_browser(request: BrowserCreateRequest):
 @router.get("/{session_id}", response_model=BrowserResponse)
 async def get_browser(session_id: str):
     """Get an existing browser container by session ID."""
+    # Check if we have a dynamically created container for this session
     instance = await browser_manager.get_browser(session_id)
-    if not instance:
-        raise HTTPException(status_code=404, detail="Browser not found")
     
-    return BrowserResponse(
-        session_id=instance.session_id,
-        novnc_url=instance.novnc_url,
-        cdp_url=instance.cdp_url,
-        vnc_url=instance.vnc_url,
-        status="ready",
-    )
+    if instance:
+        return BrowserResponse(
+            session_id=instance.session_id,
+            cdp_url=instance.cdp_url,
+            webrtc_url=instance.webrtc_url,
+            status="ready",
+        )
+    
+    # Fallback: If CDP_URL is configured (shared container), return those URLs
+    # This handles dev environments with a single shared browser container
+    if settings.CDP_URL:
+        return BrowserResponse(
+            session_id=session_id,
+            cdp_url=settings.CDP_URL,
+            webrtc_url="ws://localhost:1984/api/ws?src=stream",
+            status="ready",
+        )
+    
+    raise HTTPException(status_code=404, detail="Browser not found")
 
 
 @router.delete("/{session_id}")
@@ -112,8 +121,8 @@ async def list_browsers():
         "browsers": [
             {
                 "session_id": instance.session_id,
-                "novnc_url": instance.novnc_url,
                 "cdp_url": instance.cdp_url,
+                "webrtc_url": instance.webrtc_url,
             }
             for instance in browsers.values()
         ]

@@ -23,24 +23,21 @@ class BrowserInstance:
     """Represents a running browser container instance."""
     container_id: str
     session_id: str
-    novnc_port: int
     cdp_port: int
-    vnc_port: int
-    
-    @property
-    def novnc_url(self) -> str:
-        """URL for embedding noVNC in iframe."""
-        return f"http://localhost:{self.novnc_port}/vnc.html?autoconnect=true&resize=scale"
+    webrtc_port: int = 1984
+
     
     @property
     def cdp_url(self) -> str:
         """URL for Playwright CDP connection."""
         return f"http://localhost:{self.cdp_port}"
-    
+
     @property
-    def vnc_url(self) -> str:
-        """WebSocket URL for direct VNC connection."""
-        return f"ws://localhost:{self.novnc_port}/websockify"
+    def webrtc_url(self) -> str:
+        """URL for WebRTC stream."""
+        return f"ws://localhost:{self.webrtc_port}/api/ws?src=stream"
+    
+
 
 
 class BrowserContainerManager:
@@ -98,9 +95,8 @@ class BrowserContainerManager:
                     auto_remove=True,
                     name=f"browser-{session_id[:8]}",
                     ports={
-                        "5900/tcp": None,  # VNC - random port
-                        "6080/tcp": None,  # noVNC - random port
                         "9222/tcp": None,  # CDP - random port
+                        "1984/tcp": None,  # WebRTC - random port
                     },
                     mem_limit="1g",
                     cpu_quota=100000,  # 100% of one CPU
@@ -122,16 +118,15 @@ class BrowserContainerManager:
                 instance = BrowserInstance(
                     container_id=container.id,
                     session_id=session_id,
-                    vnc_port=int(ports["5900/tcp"][0]["HostPort"]),
-                    novnc_port=int(ports["6080/tcp"][0]["HostPort"]),
                     cdp_port=int(ports["9222/tcp"][0]["HostPort"]),
+                    webrtc_port=int(ports["1984/tcp"][0]["HostPort"]),
                 )
                 
                 self._containers[session_id] = instance
                 
                 logger.info(
                     f"Browser container created for session {session_id}: "
-                    f"noVNC={instance.novnc_port}, CDP={instance.cdp_port}"
+                    f"CDP={instance.cdp_port}, WebRTC={instance.webrtc_port}"
                 )
                 
                 # Wait for services to be ready

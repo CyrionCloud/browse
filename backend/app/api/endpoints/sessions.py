@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel
 from typing import Optional, List
 import uuid
-from app.services.agent_service import run_agent_task, stop_agent_task, intervene_agent, click_by_mark
+from app.services.agent_service import run_agent_task, stop_agent_task, intervene_agent, click_by_mark, start_agent_task
 from app.services.database import db
 
 router = APIRouter()
@@ -18,6 +18,8 @@ class SessionResponse(BaseModel):
     user_id: str
     status: str
     task_description: str
+    title: Optional[str] = None
+    summary: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -67,7 +69,7 @@ async def start_session(session_id: str, background_tasks: BackgroundTasks, requ
 
         # Run Agent in Background with config
         agent_config = session.get("agent_config", {})
-        background_tasks.add_task(run_agent_task, session_id, session["task_description"], token, agent_config)
+        start_agent_task(session_id, session["task_description"], token, agent_config)
 
         return {"message": "Session started", "sessionId": session_id}
     except HTTPException:
@@ -122,7 +124,7 @@ async def resume_session(session_id: str, background_tasks: BackgroundTasks, req
         await db.update_session_status(session_id, "active", token=token)
 
         # Resume running the agent task
-        background_tasks.add_task(run_agent_task, session_id, session["task_description"], token)
+        start_agent_task(session_id, session["task_description"], token)
 
         return {"message": "Session resumed", "sessionId": session_id}
     except HTTPException:

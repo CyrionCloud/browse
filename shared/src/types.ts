@@ -33,6 +33,8 @@ export interface BrowserSession {
   user_id: string
   status: SessionStatus
   task_description: string
+  title?: string
+  summary?: string
   task_type?: TaskType
   agent_config?: AgentConfig
   result?: any

@@ -2,7 +2,7 @@ import axios, { AxiosError } from 'axios'
 import type { BrowserSession, ChatMessage, Skill, AgentConfig, APIResponse } from '@autobrowse/shared'
 import { supabase } from '../supabase/client'
 
-const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || ''
 
 const api = axios.create({
   baseURL: API_URL,
@@ -146,6 +146,14 @@ export const sessionsApi = {
     })
     if (!data.data) throw new Error(data.error || 'Failed to send intervention')
     return data.data
+  },
+
+  /**
+   * Get browser connection details (CDP, WebRTC).
+   */
+  getBrowser: async (sessionId: string): Promise<{ cdp_url: string; webrtc_url: string }> => {
+    const { data } = await api.get<{ session_id: string; cdp_url: string; webrtc_url: string }>(`/api/browser/${sessionId}`)
+    return data
   },
 }
 

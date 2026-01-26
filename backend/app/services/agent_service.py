@@ -11,6 +11,10 @@ from app.services.self_healing_service import SelfHealingService
 from app.services.owl_vision_service import owl_vision
 import traceback
 import json
+from app.services.cdp_stream_service import cdp_streamer
+from app.services.cdp.client import CDPClient
+from app.services.controller_service import controller, init_cdp_tools
+from app.services.cache.action_cache import action_cache
 
 # Store running agents for intervention capability
 running_agents: dict[str, Agent] = {}
@@ -20,6 +24,39 @@ running_browsers: dict[str, Browser] = {}
 stop_flags: dict[str, bool] = {}
 # Store streaming tasks for live screenshot streaming
 streaming_tasks: dict[str, asyncio.Task] = {}
+# Store active agent tasks for cancellation
+active_tasks: dict[str, asyncio.Task] = {}
+
+async def wait_for_cdp(cdp_url: str, timeout: int = 15) -> bool:
+    """
+    Wait for CDP URL to be available and return valid JSON.
+    Retries for 'timeout' seconds.
+    """
+    import aiohttp
+    
+    print(f"⏳ Waiting for CDP at {cdp_url}...")
+    start_time = asyncio.get_event_loop().time()
+    
+    # Clean URL (remove trailing slash)
+    base_url = cdp_url.rstrip('/')
+    
+    while True:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{base_url}/json/version", timeout=2) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        print(f"   ✓ CDP available: {data.get('Browser', 'Unknown')}")
+                        return True
+        except Exception as e:
+            pass
+            
+        if asyncio.get_event_loop().time() - start_time > timeout:
+            print(f"   ❌ CDP wait timed out")
+            return False
+            
+        await asyncio.sleep(1)
+
 
 
 def get_active_page(browser: Browser):
@@ -300,28 +337,58 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
             api_key=settings.DEEPSEEK_API_KEY
         )
         
-        # Initialize Browser in HEADFUL mode for reliable screenshots
-        # Headless mode causes blank screenshots - headful renders properly
-        browser_config = BrowserConfig(
-            headless=False,  # VISIBLE browser for proper rendering
-            disable_security=True,
-            extra_chromium_args=[
-                "--disable-blink-features=AutomationControlled",
-                "--disable-infobars", 
-                "--window-size=1920,1080",
-                "--disable-extensions",
-                "--disable-gpu",
-                "--no-sandbox",
-            ],
-        )
+        # Initialize Browser
+        if (settings.BROWSER_MODE in ["container", "custom"]) and settings.CDP_URL:
+            # Wait for CDP to be ready
+            is_ready = await wait_for_cdp(settings.CDP_URL)
+            if not is_ready:
+                raise ConnectionError(f"Could not connect to browser at {settings.CDP_URL}")
+                
+            print(f"🌐 Connecting to remote browser at {settings.CDP_URL}")
+            browser_config = BrowserConfig(
+                cdp_url=settings.CDP_URL,
+                headless=False,
+                disable_security=True,
+            )
+        else:
+            print(f"🌐 Browser initialized in HEADFUL mode for screenshot reliability")
+            browser_config = BrowserConfig(
+                headless=False,  # VISIBLE browser for proper rendering
+                disable_security=True,
+                extra_chromium_args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--disable-infobars", 
+                    "--window-size=1920,1080",
+                    "--disable-extensions",
+                    "--disable-gpu",
+                    "--no-sandbox",
+                ],
+            )
+        
         browser = Browser(config=browser_config)
         print(f"🌐 Browser initialized in HEADFUL mode for screenshot reliability")
-        
-        # Initialize Agent
+
+        cdp_client = None
+
+        # Initialize CDP for Performance Core
+        if (settings.BROWSER_MODE in ["container", "custom"]) and settings.CDP_URL:
+            try:
+                # Reuse streamer logic to find page WS URL
+                ws_url = await cdp_streamer.get_cdp_ws_url(settings.CDP_URL)
+                if ws_url:
+                    cdp_client = CDPClient(ws_url)
+                    await cdp_client.connect()
+                    init_cdp_tools(cdp_client)
+                    print(f"🚀 Performance Core (CDP) enabled")
+            except Exception as cdp_err:
+                print(f"⚠ Failed to initialize Performance Core: {cdp_err}")
+
+        # Initialize Agent with Controller
         agent = Agent(
             task=task,
             llm=llm,
             browser=browser,
+            controller=controller,
             use_vision=False,
             enable_memory=False
         )
@@ -349,6 +416,82 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
         all_results = []
         current_marks = []  # Store current Set-of-Marks for click-by-mark
 
+        # PERFORMANCE CORE: Check Action Cache
+        cached_actions = None
+        current_url = "about:blank" 
+        
+        # Try to get initial URL from task or browser
+        try:
+            if browser and hasattr(browser, 'playwright_browser'):
+                page = get_active_page(browser)
+                if page: current_url = page.url
+        except: pass
+
+        cached_actions = await action_cache.get_cached_plan(task, current_url)
+        
+        if cached_actions and len(cached_actions) > 0:
+            print(f"🚀 PERFORMANCE CORE: Cache Hit! Replaying {len(cached_actions)} actions...")
+            await notify_session(session_id, "session_update", {
+                "sessionId": session_id,
+                "progress": f"🚀 Instant Replay: Executing {len(cached_actions)} cached actions...",
+                "step": 0,
+                "maxSteps": len(cached_actions)
+            })
+            
+            async def replay_cached_plan(actions):
+                """Replay actions using CDP Action Dispatcher"""
+                if not cdp_client:
+                    print("⚠ No CDP Client available for replay")
+                    return False
+                
+                from app.services.cdp.dispatcher import CDPActionDispatcher
+                dispatcher = CDPActionDispatcher(cdp_client)
+                
+                try:
+                    for i, action in enumerate(actions):
+                        print(f"   ▶ Replaying action {i+1}: {action.get('type')}")
+                        
+                        if action.get("type") == "click" and "x" in action and "y" in action:
+                            await dispatcher.click(action["x"], action["y"])
+                            await asyncio.sleep(0.5) # Slight delay for stability
+                            
+                        elif action.get("type") == "type_text" and "text" in action:
+                            await dispatcher.type_text(action["text"])
+                            await asyncio.sleep(0.1)
+                            
+                        elif action.get("type") == "key_press" and "key" in action:
+                            await dispatcher.key_press(action["key"])
+                            await asyncio.sleep(0.1)
+                        
+                        # Use wait logic if specified
+                        if "wait_ms" in action:
+                            await asyncio.sleep(action["wait_ms"] / 1000)
+                            
+                    print(f"   ✅ Replay complete")
+                    return True
+                except Exception as e:
+                    print(f"   ❌ Replay failed: {e}")
+                    return False
+
+            # Execute Replay
+            replay_success = await replay_cached_plan(cached_actions)
+            
+            if replay_success:
+                 # Update DB to completed
+                 await db.update_session_status(session_id, "completed", {
+                    "completed_at": "now()",
+                    "actions_count": len(cached_actions),
+                    "result": json.dumps({"success": True, "method": "replay"}, default=str)
+                })
+                 await notify_session(session_id, "session_complete", {
+                    "sessionId": session_id,
+                    "results": {"success": True, "message": "Task completed via Instant Replay"}
+                })
+                 return # Exit early on successful replay
+
+            # Fallthrough to normal execution if replay failed
+            print(f"   ℹ Replay failed or incomplete, falling back to Agent")
+
         async def on_step_end(agent_instance=None):
             nonlocal step_count
             step_count += 1
@@ -365,6 +508,11 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
             }
             
             try:
+                # CRITICAL: Check for stop signal immediately
+                if should_stop(session_id):
+                    print(f"🛑 Stop signal detected in on_step_end for session {session_id}")
+                    raise asyncio.CancelledError("Session stopped by user")
+
                 if agent_instance and hasattr(agent_instance, 'state') and agent_instance.state:
                     state = agent_instance.state
                     
@@ -409,9 +557,44 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
                                                 step_data["action"] = args['action']
                                     break
                 
+                # EARLY STOPPING: Check for task completion
+                if step_count >= 3:  # Safety: minimum 3 steps before early stop
+                    evaluation = step_data.get("evaluation", "").lower() if step_data.get("evaluation") else ""
+                    next_goal = step_data.get("goal", "").lower() if step_data.get("goal") else ""
+                    
+                    completion_indicators = ["task completed", "goal achieved", "successfully finished", 
+                                            "completed successfully", "task is complete", "finished successfully"]
+                    goal_empty_indicators = ["none", "no further", "task complete", "done"]
+                    
+                    # Check if evaluation indicates completion
+                    if any(indicator in evaluation for indicator in completion_indicators):
+                        print(f"✅ Early stopping detected: Task completion in evaluation at step {step_count}")
+                        await notify_session(session_id, "session_update", {
+                            "sessionId": session_id,
+                            "progress": f"✅ Task completed successfully at step {step_count}",
+                            "step": step_count,
+                            "maxSteps": max_steps
+                        })
+                        # Signal agent to stop by raising StopIteration
+                        raise StopIteration("Task completed")
+                    
+                    # Check if next_goal indicates finish
+                    if any(indicator in next_goal for indicator in goal_empty_indicators):
+                        print(f"✅ Early stopping detected: No further goals at step {step_count}")
+                        await notify_session(session_id, "session_update", {
+                            "sessionId": session_id,
+                            "progress": f"✅ Task completed - no further actions needed at step {step_count}",
+                            "step": step_count,
+                            "maxSteps": max_steps
+                        })
+                        raise StopIteration("No further goals")
+                
                 all_results.append(step_data)
                 print(f"Step {step_count} data: goal={step_data['goal'][:50] if step_data['goal'] else None}...")
                 
+            except StopIteration:
+                # Re-raise to stop the agent
+                raise
             except Exception as e:
                 print(f"Error extracting step data: {e}")
 
@@ -605,6 +788,80 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
             "actions_count": step_count,
             "result": json.dumps(final_results, default=str)
         })
+
+        # PERFORMANCE CORE: Cache successful plan - EXTRACT AND CONVERT TO CDP ACTIONS
+        try:
+            plan_actions = []
+            
+            # Iterate through all steps and extract low-level actions if possible
+            for res in all_results:
+                
+                # Check for action data
+                action_data = res.get("action")
+                
+                # Check for result data (often contains the click coordinates from click_by_mark)
+                result_data = res.get("result")
+                
+                if action_data:
+                    # Normalize action_data to list
+                    actions_list = action_data if isinstance(action_data, list) else [action_data]
+                    
+                    for act in actions_list:
+                        if not isinstance(act, dict): continue
+                        
+                        action_type = list(act.keys())[0] if act else None
+                        
+                        # 1. Handle Click by Mark (Owl Vision) -> Convert to Coordinate Click
+                        if action_type == "click_by_mark" or (isinstance(act, dict) and 'click_by_mark' in act):
+                            # Try to find the coordinates in the *result* of this step
+                            if isinstance(result_data, dict) and result_data.get("coordinates"):
+                                coords = result_data["coordinates"]
+                                plan_actions.append({
+                                    "type": "click",
+                                    "x": coords[0],
+                                    "y": coords[1],
+                                    "wait_ms": 1000 # Default wait after click
+                                })
+                            # Fallback: check if we have mark data in the action itself (unlikely but possible)
+                            
+                        # 2. Handle Type Text / Fill
+                        elif action_type in ["type_text", "fill"]:
+                            args = act.get(action_type, {})
+                            text = args.get("text") or args.get("value")
+                            if text:
+                                plan_actions.append({
+                                    "type": "type_text",
+                                    "text": text,
+                                    "wait_ms": 500
+                                })
+                        
+                        # 3. Handle Key Press
+                        elif action_type == "press_key":
+                            args = act.get(action_type, {})
+                            key = args.get("key")
+                            if key:
+                                plan_actions.append({
+                                    "type": "key_press",
+                                    "key": key,
+                                    "wait_ms": 300
+                                })
+                                
+                        # 4. Handle Go To URL (Initial navigation only)
+                        elif action_type == "go_to_url":
+                             args = act.get(action_type, {})
+                             url = args.get("url")
+                             # We don't replay navigation usually as the cache key is (Task+URL)
+                             # But we might double check if we are on the right page?
+                             pass
+            
+            if len(plan_actions) > 0:
+                print(f"🚀 Caching {len(plan_actions)} low-level actions for replay")
+                await action_cache.cache_plan(task, current_url, plan_actions, True)
+            else:
+                print(f"ℹ No replayable actions found to cache")
+                
+        except Exception as cache_err:
+            print(f"⚠ Failed to cache plan: {cache_err}")
         
         # Notify complete with formatted results
         await notify_session(session_id, "session_complete", {
@@ -626,6 +883,15 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
             "error": error_msg
         })
     finally:
+        # Trigger Session Summary (Async)
+        try:
+            from app.services.summary_service import summary_service
+            # Run in background to not block cleanup
+            asyncio.create_task(summary_service.generate_and_save_summary(session_id, task))
+            print(f"   📝 Summary generation triggered for session {session_id}")
+        except Exception as sum_err:
+            print(f"   ⚠ Failed to trigger summary: {sum_err}")
+
         # Stop screenshot streaming first
         await stop_streaming(session_id)
         
@@ -648,6 +914,13 @@ async def run_agent_task(session_id: str, task: str, token: str = None, agent_co
                 print(f"Browser (local) closed for session {session_id}")
         except Exception as e:
             print(f"Browser cleanup error: {e}")
+            
+        # Cleanup CDP Client
+        if 'cdp_client' in locals() and cdp_client:
+            try:
+                await cdp_client.disconnect()
+                print("CDP Client disconnected")
+            except: pass
 
 
 async def stop_agent_task(session_id: str):
@@ -662,56 +935,53 @@ async def stop_agent_task(session_id: str):
     # Stop screenshot streaming first
     await stop_streaming(session_id)
     
+    # Cancel the main agent task if it exists
+    if session_id in active_tasks:
+        task = active_tasks[session_id]
+        task.cancel()
+        print(f"🛑 Main agent task cancelled for session {session_id}")
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+        active_tasks.pop(session_id, None)
+
     # Forcefully close the browser and all contexts
     browser = running_browsers.get(session_id)
     if browser:
         try:
-            # First try to close all contexts
-            if hasattr(browser, 'playwright_browser') and browser.playwright_browser:
-                try:
-                    for context in browser.playwright_browser.contexts:
-                        await context.close()
-                    print(f"   ✓ All browser contexts closed for session {session_id}")
-                except Exception as ctx_err:
-                    print(f"   ⚠ Context close error: {ctx_err}")
-            
-            # Then close the browser itself
             await browser.close()
-            print(f"   ✓ Browser closed for stopped session {session_id}")
+            print(f"Browser closed for session {session_id}")
         except Exception as e:
-            print(f"   ⚠ Error closing browser for session {session_id}: {e}")
-            # Try force close via playwright_browser
-            try:
-                if hasattr(browser, 'playwright_browser') and browser.playwright_browser:
-                    await browser.playwright_browser.close()
-                    print(f"   ✓ Playwright browser force-closed")
-            except:
-                pass
-        finally:
-            if session_id in running_browsers:
-                del running_browsers[session_id]
-    
-    # Cleanup agent reference
+            print(f"Error closing browser: {e}")
+            
+    # Clean up other resources
     if session_id in running_agents:
         del running_agents[session_id]
-        print(f"   ✓ Agent removed for stopped session {session_id}")
-    
-    # Cleanup stop flag
+        
     if session_id in stop_flags:
         del stop_flags[session_id]
-    
-    # Update session status in DB
-    try:
-        await db.update_session_status(session_id, "cancelled", {
-            "completed_at": "now()"
-        })
-    except Exception as e:
-        print(f"   ⚠ DB update error: {e}")
-    
-    # Notify frontend
-    await notify_session(session_id, "session_stopped", {
-        "sessionId": session_id,
-        "message": "Session stopped by user"
-    })
-    print(f"🛑 Session {session_id} fully stopped")
+
+def start_agent_task(session_id: str, task: str, token: str = None, agent_config: dict = None):
+    """
+    Start the agent task as a managed asyncio task.
+    """
+    async def task_wrapper():
+        try:
+            await run_agent_task(session_id, task, token, agent_config)
+        except asyncio.CancelledError:
+            print(f"Task wrapper for {session_id} cancelled")
+        except Exception as e:
+            print(f"Task wrapper for {session_id} failed: {e}")
+        finally:
+            active_tasks.pop(session_id, None)
+            
+    # Create and store the task
+    loop = asyncio.get_event_loop()
+    agent_task = loop.create_task(task_wrapper())
+    active_tasks[session_id] = agent_task
+    return agent_task
+
+
+
 
